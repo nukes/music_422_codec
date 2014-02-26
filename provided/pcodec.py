@@ -8,15 +8,11 @@ codec.py -- The actual encode/decode functions for the perceptual audio codec
 
 import numpy as np  # used for arrays
 
-# used by Encode and Decode
-from window import SineWindow  # current window used for MDCT -- implement KB-derived?
-from mdct import MDCT,IMDCT  # fast MDCT implementation (uses numpy FFT)
-from quantize import *  # using vectorized versions (to use normal versions, uncomment lines 18,67 below defining vMantissa and vDequantize)
-
-# used only by Encode
-#from smr import CalcSMRs  # calculates SMRs for each scale factor band
-from bitalloc import BitAlloc  #allocates bits to scale factor bands given SMRs
-from psychoac import *
+from codec.quantize import *  # using vectorized versions (to use normal versions, uncomment lines 18,67 below defining vMantissa and vDequantize)
+from codec.window import SineWindow  # current window used for MDCT -- implement KB-derived?
+from codec.mdct import MDCT,IMDCT  # fast MDCT implementation (uses numpy FFT)
+from codec.bitalloc import BitAlloc  #allocates bits to scale factor bands given SMRs
+from codec.psychoac import *
 
 def Decode(scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams):
     """Reconstitutes a single-channel block of encoded data into a block of
@@ -97,6 +93,8 @@ def EncodeSingleChannel(data,codingParams):
     # compute SMRs in side chain FFT
     SMRs = CalcSMRs(timeSamples, mdctLines, overallScale, codingParams.sampleRate, sfBands)
     
+    SMRs = np.array(SMRs)
+
     # perform bit allocation using SMR results
     bitAlloc = BitAlloc(bitBudget, maxMantBits, sfBands.nBands, sfBands.nLines, SMRs)
 

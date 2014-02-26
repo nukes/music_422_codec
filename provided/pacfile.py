@@ -103,8 +103,8 @@ Description of the PAC File Format:
 
 from audiofile import * # base class
 from bitpack import *  # class for packing data into an array of bytes where each item's number of bits is specified
-import codec    # module where the actual PAC coding functions reside(this module only specifies the PAC file format)
-from psychoac import ScaleFactorBands, AssignMDCTLinesFromFreqLimits  # defines the grouping of MDCT lines into scale factor bands
+from codec.psychoac import ScaleFactorBands, AssignMDCTLinesFromFreqLimits  # defines the grouping of MDCT lines into scale factor bands
+import pcodec    # module where the actual PAC coding functions reside(this module only specifies the PAC file format)
 import sys
 
 import numpy as np  # to allow conversion of data blocks to numpy's array object
@@ -322,7 +322,7 @@ class PACFile(AudioFile):
         and the overall scale factor for each channel.
         """
         #Passes encoding logic to the Encode function defined in the codec module
-        return codec.Encode(data,codingParams)
+        return pcodec.Encode(data,codingParams)
 
     def Decode(self,scaleFactor,bitAlloc,mantissa, overallScaleFactor,codingParams):
         """
@@ -330,7 +330,7 @@ class PACFile(AudioFile):
         bit allocations, quantized mantissas, and overall scale factor.
         """
         #Passes decoding logic to the Decode function defined in the codec module
-        return codec.Decode(scaleFactor,bitAlloc,mantissa, overallScaleFactor,codingParams)
+        return pcodec.Decode(scaleFactor,bitAlloc,mantissa, overallScaleFactor,codingParams)
 
 
 

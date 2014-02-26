@@ -1,3 +1,8 @@
+# Stuff from the Codec
+*.wav
+*.pac
+samples/
+
 *.py[cod]
 
 # C extensions
