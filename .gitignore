@@ -1,6 +1,7 @@
 # Stuff from the Codec
 *.wav
 *.pac
+*.ipynb
 samples/
 
 *.py[cod]

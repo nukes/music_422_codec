@@ -122,6 +122,37 @@ def DequantizeUniform(aQuantizedNum, nBits):
     return sign * abs(n)
 
 
+def Dequantize(scale, mantissa, nScaleBits=3, nMantBits=5):
+    """
+    Returns a  signed fraction for block floating-point scale and mantissa given specified scale and mantissa bits
+    """
+
+    ### YOUR CODE STARTS HERE ###
+
+    if nMantBits <= 0: return 0
+    if nScaleBits < 0: nScaleBits = 0
+
+    maxScale = (1 << nScaleBits) - 1
+    maxBits = maxScale + nMantBits
+    signBit = (1<<(nMantBits-1))
+
+    if mantissa & signBit:
+        sign = 1
+        mantissa -= signBit
+    else: sign = 0
+
+    code = mantissa << (maxScale-scale)
+    if (scale < maxScale and mantissa > 0): code += 1<<(maxScale - scale - 1)
+
+    if sign:
+        signBit = (1<<(maxBits - 1))
+        code += signBit
+    
+    ### YOUR CODE ENDS HERE ###
+
+    return DequantizeUniform(code, maxBits)
+
+
 def _get_max_scale_size(scale_bits, mant_bits):
     ''' Returns a tuple of the maximum scale and the maximum bits
     used in the block FP scheme calculations '''

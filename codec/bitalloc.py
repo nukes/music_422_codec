@@ -33,7 +33,7 @@ def water_fill(signal, bit_alloc, bits_remaining, max_mant, nLines):
 
     return bits_without_ones.astype(int)
 
-
+DBTOBITS = 6.02
 def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
     """
     Allocates bits to scale factor bands so as to flatten the NMR across the spectrum
@@ -56,62 +56,90 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
            case we set R(i)=0) or if any R(i) goes above maxMantBits (in
            which case we set R(i)=maxMantBits).  (Note: 1 Mantissa bit is
            equivalent to 0 mantissa bits when you are using a midtread quantizer.)
-           We will not bother to worry about slight variations in bit budget due
+           We will not bother to worry about slight variations in bit budget due to
            rounding of the above equation to integer values of R(i).
       """
 
+    # Enforce 16 bit input
+    if maxMantBits > 16: maxMantBits = 16
 
-    """
-    uniform = np.int32([ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2])
-    constSNR = np.int32([ 2, 2, 2, 4, 4, 4, 8, 12, 9, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    constMNR = np.int32([ 3, 3, 2, 0, 3, 0, 0, 3, 2, 2, 3, 3, 3, 3, 3, 3, 0, 2, 3, 3, 3, 3, 4, 4, 5])
+    # Initialize vector containing number of bits allocated to each band
+    bits = np.zeros(nBands, dtype=np.int32)
 
-    uniform = np.int32([ 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5])
-    constSNR = np.int32([ 8, 8, 8, 12, 9, 10, 16, 16, 16, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    constSMR = np.int32([ 6, 6, 5, 3, 6, 0, 3, 6, 5, 5, 6, 6, 6, 6, 6, 6, 4, 4, 5, 5, 6, 5, 7, 7, 8])
-
-
-    #return uniform
-    return constSNR
-    #return constMNR
-    """
+    # Update SMR vector through each bit allocation iteration
+    SMR = np.copy(SMR)
     
-    Kp = len(SMR[SMR > 0])
-    Rk = np.zeros(nBands, dtype=np.int32)
+    ######## Water-filling ########
 
-    threshold = np.ceil(0.5*np.log2(max(np.round(SMR)**2)))
-    cutSMR = np.copy(np.round(SMR))
-    cutSMR[cutSMR <= 2] = 3
-    cutSMR[SMR<-20] = 1
+    remBits = bitBudget    # remaining bits in budget
+    lastBudget = bitBudget    # remaining bit budget from last iteration
 
-    v = np.round(0.5*np.log2(cutSMR**2))
+    availableBands = np.ones(nBands, dtype=bool)    # Indicates which bands to allocate bits to
 
-    v = np.abs(v)
+    while True:
 
-    # water-filling
-    remBits = bitBudget
-    while threshold > 0:
-      Rk[ v >= threshold ] += 1
-      threshold -= 1
-      remBits -= len(Rk[ v >= threshold ])
-      if remBits <= 0: break
+        # Stop conditions: 
+            # All bands have been filled
+        if np.all(np.logical_not(availableBands)): break
 
-    # check for single bits and negative values
-    ones = len(Rk[Rk==1])
-    Rk[Rk<=1] = 0
+            # All bands are saturated
+        if np.all(bits == maxMantBits): break
+
+        # Indices of bands we're not done filling (the first max value in each available band)
+        indices = (SMR == max(SMR[availableBands])).nonzero()[0]
+        if indices.size == 0: break
+
+        for i in indices:
+          if remBits >= nLines[i]:
+            if bits[i] < maxMantBits:
+              remBits -= nLines[i]
+              bits[i] += 1
+            if bits[i] == maxMantBits:
+              availableBands[i] = False
+            SMR[i] -= DBTOBITS
+          else:
+            availableBands[i] = False
+
+        # Stop if no bits were assigned in the last iteration
+        if remBits == lastBudget: break
+
+        lastBudget = remBits
+
+
+    # Check for single bits and negative values
+    bits[bits<=1] = 0
+
+    availableBands = (bits != maxMantBits)
     
-    # redistribute isolated bits
-    while ones > 0:
-      for i in range(0,len(Rk)):
-        if Rk[i] > 1:
-          Rk[i] += 1
-          ones -= 1
+    while True:
+      if np.all(np.logical_not(availableBands)): break
+      indices = (bits==1).nonzero()[0]    # indices of bands with just 1 allocated bit
 
-    for i in range(0,len(Rk)):
-      if remBits >= 3:
-        Rk[Rk>0] += 3
-    # check for bit overflow
-    Rk[Rk>maxMantBits] = maxMantBits
+      if indices.size == 0: break
 
-    return Rk
+      index = indices[0]
+
+      bits[index] -= 1
+      remBits += nLines[index]    # Add lonely bit back to bit budget
+      availableBands[index] = False
+
+      indices = (SMR == max(SMR[availableBands])).nonzero()[0]
+
+      if indices.size == 0: break
+
+      for i in indices:
+        if remBits >= nLines[i]:
+          remBits -= nLines[i]
+          bits[i] += 1
+          if bits[i] == maxMantBits:
+            availableBands[i] = False
+          SMR[i] -= DBTOBITS
+
+    return bits
+
+    #-----------------------------------------------------------------------------
+
+if __name__ == "__main__":
+  pass
+
 

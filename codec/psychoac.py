@@ -1,6 +1,6 @@
 import numpy as np
 
-from codec.window import HanningWindow
+from codec.window import KBDWindow, HanningWindow
 
 
 def SPL(intensity): 

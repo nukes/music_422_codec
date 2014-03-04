@@ -9,7 +9,7 @@ codec.py -- The actual encode/decode functions for the perceptual audio codec
 import numpy as np  # used for arrays
 
 from codec.quantize import *  # using vectorized versions (to use normal versions, uncomment lines 18,67 below defining vMantissa and vDequantize)
-from codec.window import SineWindow  # current window used for MDCT -- implement KB-derived?
+from codec.window import SineWindow, KBDWindow  # current window used for MDCT -- implement KB-derived?
 from codec.mdct import MDCT,IMDCT  # fast MDCT implementation (uses numpy FFT)
 from codec.bitalloc import BitAlloc  #allocates bits to scale factor bands given SMRs
 from codec.psychoac import *
@@ -36,7 +36,7 @@ def Decode(scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams):
 
 
     # IMDCT and window the data for this channel
-    data = SineWindow( IMDCT(mdctLine, halfN, halfN) )  # takes in halfN MDCT coeffs
+    data = KBDWindow( IMDCT(mdctLine, halfN, halfN), alpha=4.)
 
     # end loop over channels, return reconstituted time samples (pre-overlap-and-add)
     return data
@@ -81,10 +81,11 @@ def EncodeSingleChannel(data,codingParams):
 
     # window data for side chain FFT and also window and compute MDCT
     timeSamples = data
-    mdctTimeSamples = SineWindow(data)
+    mdctTimeSamples = KBDWindow(data, alpha=4.)
+
     mdctLines = MDCT(mdctTimeSamples, halfN, halfN)[:halfN]
 
-    # compute overall scale factor for this block and boost mdctLines using it
+    # compute overall scale factor for this block opand boost mdctLines using it
     maxLine = np.max( np.abs(mdctLines) )
     overallScale = ScaleFactor(maxLine,nScaleBits)  #leading zeroes don't depend on nMantBits
     mdctLines *= (1<<overallScale)

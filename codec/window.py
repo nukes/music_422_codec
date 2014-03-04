@@ -17,4 +17,18 @@ def HanningWindow(dataSampleArray):
 
 def KBDWindow(dataSampleArray, alpha=4.):
     ''' Performs a KBD window (with tuning param) on the sample '''
-    raise NotImplementedError
+    N = float(len(dataSampleArray))
+    window = np.zeros(N)
+    s = 0.
+
+    for i in range(int(N/2)):
+        s += np.i0(np.pi * alpha * np.sqrt(1.-(4.*i/N-1.)**2))
+        window[i] = s
+
+    s += np.i0(np.pi * alpha * np.sqrt(1.-(4.*N/2./N-1.)**2))
+
+    for i in range(int(N/2)):
+        window[i] = np.sqrt(window[i]/s)
+        window[N-i-1] = window[i]
+
+    return dataSampleArray * window
