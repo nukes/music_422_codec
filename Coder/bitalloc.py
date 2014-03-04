@@ -1,83 +1,39 @@
 import numpy as np
 
-# Question 1.b)
-def BitAllocUniform(bitBudget, maxMantBits, nBands, nLines, SMR):
-    """
-    Return a hard-coded vector that, in the case of the signal use in HW#4,
-    gives the allocation of mantissa bits in each scale factor band when
-    bits are uniformely distributed for the mantissas.
-    """
 
-    bitAllocs = np.zeros(nBands)
-    mantBits = bitBudget / sum(nLines)
-    if mantBits == 1:
-      mantBits = 0
+def water_fill(signal, bit_alloc, bits_remaining, max_mant, nLines):
 
-    if mantBits > maxMantBits:
-      mantBits = maxMantBits
+    signal = np.array(signal)
+    threshold = np.max(0.5 * np.log2(signal ** 2))
+    transform = 0.5 * np.log2(signal ** 2)
 
-    bitAllocs[:] = np.round(mantBits)
+    sorted_transform = np.sort(transform)
+    indices = np.argsort(transform)
 
-    return bitAllocs
+    while bits_remaining > np.min(nLines):
 
-def BitAllocConstSNR(bitBudget, maxMantBits, nBands, nLines, SMR):
-    """
-    Return a hard-coded vector that, in the case of the signal use in HW#4,
-    gives the allocation of mantissa bits in each scale factor band when
-    bits are distributed for the mantissas to try and keep a constant 
-    quantization noise floor (assuming a noise floor 6 dB per bit below 
-    the peak SPL line in the scale factor band).
-    """
+        threshold -= 1
 
-    # note: in this case, signal SPL is passed as SMR
+        for i in range(len(sorted_transform)):
+            k = indices[i]
+            bit_fill = nLines[k]
+            if sorted_transform[k] > threshold and bit_fill <= bits_remaining \
+                                               and bit_alloc[k] < max_mant: 
+                bit_alloc[k] += 1
+                bits_remaining -= bit_fill
 
-    SPL = SMR
-    Kp = len(SPL[SPL > 0])
-    Rk = np.zeros(sum(nLines), dtype=np.int32)
-    Rk[SPL <= 0] = 0
-    trueMax = bitBudget / sum(nLines)
+    # Get rid of ones!
+    bits_without_ones = np.where(bit_alloc == 1, 0, bit_alloc)
+    ones_remaining = np.sum(bit_alloc) - np.sum(bits_without_ones)
 
-    mantBits = bitBudget*1.0/Kp
-    if mantBits > trueMax:
-      mantBits = trueMax
+    # Iteratively dole out the one bits
+    for i in range(int(ones_remaining)):
+        k = np.argsort(bits_without_ones[bits_without_ones >= 2])[0]
+        bits_without_ones[k] += 1
 
-    Rk = np.round(mantBits + 0.5 * np.log2(SPL**2) - 1./Kp * np.sum(0.5*(np.log2((SPL[SPL>0])**2))))
-    Rk[Rk<=1] = 0
+    return bits_without_ones.astype(int)
 
-    bitAllocs = np.zeros(nBands)
-    n = 0
-    for i in range(0,nBands):
-      bitAllocs[i] = sum(Rk[n:nLines[i]+n]) 
-      n += nLines[i]
-
-    bitAllocs[bitAllocs > maxMantBits] = maxMantBits
-    return bitAllocs
-
-def BitAllocConstMNR(bitBudget, maxMantBits, nBands, nLines, SMR):
-    """
-    Return a hard-coded vector that, in the case of the signal use in HW#4,
-    gives the allocation of mantissa bits in each scale factor band when
-    bits are distributed for the mantissas to try and keep the quantization
-    noise floor a constant distance below (or above, if bit starved) the
-    masked threshold curve (assuming a quantization noise floor 6 dB per
-    bit below the peak SPL line in the scale factor band).
-    """
-    Kp = len(SMR[SMR > 0])
-    Rk = np.zeros(sum(nLines), dtype=np.int32)
-    Rk[SMR <= 1] = 0
-    trueMax = bitBudget / sum(nLines)
-
-    mantBits = bitBudget*1.0/Kp
-    if mantBits > trueMax:
-      mantBits = trueMax
-
-    Rk = np.round(mantBits + 0.5 * np.log2(SMR**2) - 1./Kp * np.sum(0.5*(np.log2((SMR[SMR>0])**2))))
-    Rk[Rk<0] = 0
-    Rk[Rk>maxMantBits] = maxMantBits
-
-    return Rk
-
-# Question 1.c)
+DBTOBITS = 6.02
 def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
     """
     Allocates bits to scale factor bands so as to flatten the NMR across the spectrum
@@ -100,84 +56,90 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
            case we set R(i)=0) or if any R(i) goes above maxMantBits (in
            which case we set R(i)=maxMantBits).  (Note: 1 Mantissa bit is
            equivalent to 0 mantissa bits when you are using a midtread quantizer.)
-           We will not bother to worry about slight variations in bit budget due
+           We will not bother to worry about slight variations in bit budget due to
            rounding of the above equation to integer values of R(i).
       """
 
+    # Enforce 16 bit input
+    if maxMantBits > 16: maxMantBits = 16
 
-    """
-    uniform = np.int32([ 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2])
-    constSNR = np.int32([ 2, 2, 2, 4, 4, 4, 8, 12, 9, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    constMNR = np.int32([ 3, 3, 2, 0, 3, 0, 0, 3, 2, 2, 3, 3, 3, 3, 3, 3, 0, 2, 3, 3, 3, 3, 4, 4, 5])
+    # Initialize vector containing number of bits allocated to each band
+    bits = np.zeros(nBands, dtype=np.int32)
 
-    uniform = np.int32([ 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5])
-    constSNR = np.int32([ 8, 8, 8, 12, 9, 10, 16, 16, 16, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    constSMR = np.int32([ 6, 6, 5, 3, 6, 0, 3, 6, 5, 5, 6, 6, 6, 6, 6, 6, 4, 4, 5, 5, 6, 5, 7, 7, 8])
-
-
-    #return uniform
-    return constSNR
-    #return constMNR
-    """
+    # Update SMR vector through each bit allocation iteration
+    SMR = np.copy(SMR)
     
-    Kp = len(SMR[SMR > 0])
-    Rk = np.zeros(nBands, dtype=np.int32)
+    ######## Water-filling ########
 
-    threshold = np.ceil(0.5*np.log2(max(np.round(SMR)**2)))
-    cutSMR = np.copy(np.round(SMR))
-    cutSMR[cutSMR <= 2] = 3
-    cutSMR[SMR<-20] = 1
+    remBits = bitBudget    # remaining bits in budget
+    lastBudget = bitBudget    # remaining bit budget from last iteration
 
-    v = np.round(0.5*np.log2(cutSMR**2))
+    availableBands = np.ones(nBands, dtype=bool)    # Indicates which bands to allocate bits to
 
-    v = np.abs(v)
+    while True:
 
-    # water-filling
-    remBits = bitBudget
-    while threshold > 0:
-      Rk[ v >= threshold ] += 1
-      threshold -= 1
-      remBits -= len(Rk[ v >= threshold ])
-      if remBits <= 0: break
+        # Stop conditions: 
+            # All bands have been filled
+        if np.all(np.logical_not(availableBands)): break
 
-    # check for single bits and negative values
-    ones = len(Rk[Rk==1])
-    Rk[Rk<=1] = 0
+            # All bands are saturated
+        if np.all(bits == maxMantBits): break
+
+        # Indices of bands we're not done filling (the first max value in each available band)
+        indices = (SMR == max(SMR[availableBands])).nonzero()[0]
+        if indices.size == 0: break
+
+        for i in indices:
+          if remBits >= nLines[i]:
+            if bits[i] < maxMantBits:
+              remBits -= nLines[i]
+              bits[i] += 1
+            if bits[i] == maxMantBits:
+              availableBands[i] = False
+            SMR[i] -= DBTOBITS
+          else:
+            availableBands[i] = False
+
+        # Stop if no bits were assigned in the last iteration
+        if remBits == lastBudget: break
+
+        lastBudget = remBits
+
+
+    # Check for single bits and negative values
+    bits[bits<=1] = 0
+
+    availableBands = (bits != maxMantBits)
     
-    # redistribute isolated bits
-    while ones > 0:
-      for i in range(0,len(Rk)):
-        if Rk[i] > 1:
-          Rk[i] += 1
-          ones -= 1
+    while True:
+      if np.all(np.logical_not(availableBands)): break
+      indices = (bits==1).nonzero()[0]    # indices of bands with just 1 allocated bit
 
-    for i in range(0,len(Rk)):
-      if remBits >= 3:
-        Rk[Rk>0] += 3
-    # check for bit overflow
-    Rk[Rk>maxMantBits] = maxMantBits
+      if indices.size == 0: break
 
-    return Rk
-    
+      index = indices[0]
 
+      bits[index] -= 1
+      remBits += nLines[index]    # Add lonely bit back to bit budget
+      availableBands[index] = False
 
+      indices = (SMR == max(SMR[availableBands])).nonzero()[0]
 
+      if indices.size == 0: break
 
-#-----------------------------------------------------------------------------
+      for i in indices:
+        if remBits >= nLines[i]:
+          remBits -= nLines[i]
+          bits[i] += 1
+          if bits[i] == maxMantBits:
+            availableBands[i] = False
+          SMR[i] -= DBTOBITS
 
-#Testing code
+    return bits
+
+    #-----------------------------------------------------------------------------
+
 if __name__ == "__main__":
-    
-  ### Exercise 1.b ###
-
-  # At 128k bitrate, uniform bit allocation was insufficient: clipping is audible and harsh. 
-  # High frequencies are lost for constant SNR, whereas low frequencies are lost for constant
-  # MNR. 
-  # At 256k bitrate, uniform allocation is much closer to the original. In fact, very little 
-  # difference can be perceived. 
-  # Constant SNR is similar to the 128k bitrate case, whereas MNR is improved but still lacking
-  # some mid-frequencies. 
-  
-  ### End of Exercise 1.b ###
-
   pass
+
+
