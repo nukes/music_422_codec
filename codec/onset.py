@@ -26,11 +26,11 @@ class WindowState(object):
     def step(self, is_onset):
         ''' External method to advance the state machine's state. '''
         if is_onset:
-            return self.transient()
+            return self._transient()
         else:
-            return self.no_transient()
+            return self._no_transient()
 
-    def transient(self):
+    def _transient(self):
         ''' Internal method to transition state based on onset presence '''
         if self.state == 0:
             self.state = 1
@@ -42,7 +42,7 @@ class WindowState(object):
             self.state = 2
         return self.state
 
-    def no_transient(self):
+    def _no_transient(self):
         ''' Internal method to transition state when no onset is present. '''
         if self.state == 0:
             self.state = 0
