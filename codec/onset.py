@@ -23,7 +23,15 @@ class WindowState(object):
     def __init__(self):
         self.state = 0
 
+    def step(self, is_onset):
+        ''' External method to advance the state machine's state. '''
+        if is_onset:
+            return self.transient()
+        else:
+            return self.no_transient()
+
     def transient(self):
+        ''' Internal method to transition state based on onset presence '''
         if self.state == 0:
             self.state = 1
         elif self.state == 1:
@@ -35,6 +43,7 @@ class WindowState(object):
         return self.state
 
     def no_transient(self):
+        ''' Internal method to transition state when no onset is present. '''
         if self.state == 0:
             self.state = 0
         elif self.state == 1:
