@@ -11,7 +11,7 @@ def onset_in_block(signal):
 
     This function will output a Boolean value. '''
     N = signal.size
-    thresh = 0.05
+    thresh = 0.03
     fft = np.fft.fft(signal)[:N/2]
     
     energy = np.sum(np.linspace(0, 1, N/2) * np.abs(fft)**2) / (N/2.)
@@ -51,7 +51,7 @@ class WindowState(object):
         elif self.state == 2:
             self.state = 3
         elif self.state == 3:
-            self.state = 4
+            self.state = 0
         return self.state
 
 

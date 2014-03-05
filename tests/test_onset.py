@@ -22,7 +22,7 @@ class TestWindowStateMachine(unittest.TestCase):
         self.assertEqual(self.machine.step(True), 1)
         self.assertEqual(self.machine.step(False), 2)
         self.assertEqual(self.machine.step(False), 3)
-        self.assertEqual(self.machine.step(False), 4)
+        self.assertEqual(self.machine.step(False), 0)
 
     def test_long_window_stays_long(self):
         self.assertEqual(self.machine.state, 0)
