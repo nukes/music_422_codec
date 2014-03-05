@@ -136,11 +136,13 @@ def AssignMDCTLinesFromFreqLimits(nMDCTLines, sampleRate, flimit = cbFreqLimits)
 
     previous_size = 0
     for limit in flimit:
-        size = np.argmax(np.less(limit, mdct_lines))
-        size = nMDCTLines if size == 0 else size  # Handle infinite freq center
+        if limit == float('inf'):
+            size = nMDCTLines
+        else:
+            size = np.argmax(np.less(limit, mdct_lines))
         assignment.append(size - previous_size)
         previous_size = size
-
+    #print "alloc: ", np.array(assignment), np.sum(np.array(assignment))
     return np.array(assignment)
 
 
@@ -218,9 +220,10 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
     # Identify tonal and noise maskers
     # Get tonal maskers
     maskers = []
-    spl_peaks = findPeaks(dft_intensity)[:Nlines+2]    # Ensure the peak list does not extend beyond Nlines
+    spl_peaks = findPeaks(dft_intensity)
 
     for i, isPeak in enumerate(spl_peaks):
+        if i+1 == Nlines: break
         if isPeak:
             if i:
                 intensity_sum = dft_intensity[i] + dft_intensity[i-1] + dft_intensity[i+1]
@@ -297,8 +300,6 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
         else:
             smr[i] = 0.
     return np.array(smr)
-
-    #-----------------------------------------------------------------------------
 
 #Testing code
 if __name__ == "__main__":

@@ -104,6 +104,7 @@ Description of the PAC File Format:
 from audiofile import * # base class
 from bitpack import *  # class for packing data into an array of bytes where each item's number of bits is specified
 from codec.psychoac import ScaleFactorBands, AssignMDCTLinesFromFreqLimits  # defines the grouping of MDCT lines into scale factor bands
+from codec.onset import onset_in_block, WindowState
 import pcodec    # module where the actual PAC coding functions reside(this module only specifies the PAC file format)
 import sys
 
@@ -209,7 +210,7 @@ class PACFile(AudioFile):
 
     def WriteFileHeader(self,codingParams):
         """
-        Writes the PAC file header for a just-opened PAC file and uses codingParams
+        Writes the PAC file header for a just-o0pened PAC file and uses codingParams
         attributes for the header data.  File pointer ends at start of data portion.
         """
         # write a header tag
@@ -250,6 +251,7 @@ class PACFile(AudioFile):
         fullBlockData=[]
         for iCh in range(codingParams.nChannels):
             fullBlockData.append( np.concatenate( ( codingParams.priorBlock[iCh], data[iCh]) ) )
+            print "LEN:", len(fullBlockData[0])
         codingParams.priorBlock = data  # current pass's data is next pass's prior block data
 
         # (ENCODE HERE) Encode the full block of multi=channel data
@@ -349,8 +351,8 @@ if __name__=="__main__":
     from pcmfile import * # to get access to WAV file handling
     elapsed = time.time()
 
-    for Direction in ("Encode", "Decode"):
 #    for Direction in ("Decode"):
+    for Direction in ["Encode"]:
 
         # create the audio file objects
         if Direction == "Encode":
@@ -370,7 +372,7 @@ if __name__=="__main__":
         if Direction == "Encode":
             # set additional parameters that are needed for PAC file
             # (beyond those set by the PCM file on open)
-            codingParams.nMDCTLines = 1024
+            codingParams.nMDCTLines = 512
             codingParams.nScaleBits = 3
             codingParams.nMantSizeBits = 4
             codingParams.targetBitsPerSample = 2.9
@@ -386,9 +388,12 @@ if __name__=="__main__":
         outFile.OpenForWriting(codingParams) # (includes writing header)
 
         # Read the input file and pass its data to the output file to be written
+        machine = WindowState()
         while True:
             data=inFile.ReadDataBlock(codingParams)
             if not data: break  # we hit the end of the input file
+            #machine.step(onset_in_block(data[0]))
+            #print machine.state
             outFile.WriteDataBlock(data,codingParams)
             print ".",  # just to signal how far we've gotten to user
             sys.stdout.flush()
@@ -397,7 +402,6 @@ if __name__=="__main__":
         # close the files
         inFile.Close(codingParams)
         outFile.Close(codingParams)
-    # end of loop over Encode/Decode
 
     elapsed = time.time()-elapsed
     print "\nDone with Encode/Decode test\n"

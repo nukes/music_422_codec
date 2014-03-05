@@ -9,9 +9,9 @@ codec.py -- The actual encode/decode functions for the perceptual audio codec
 import numpy as np  # used for arrays
 
 from codec.quantize import *  # using vectorized versions (to use normal versions, uncomment lines 18,67 below defining vMantissa and vDequantize)
-from codec.window import SineWindow, KBDWindow  # current window used for MDCT -- implement KB-derived?
+from codec.window import KBDWindow, compose_kbd_window  # current window used for MDCT -- implement KB-derived?
 from codec.mdct import MDCT,IMDCT  # fast MDCT implementation (uses numpy FFT)
-from codec.bitalloc import BitAlloc  #allocates bits to scale factor bands given SMRs
+from provided.bitalloc import BitAlloc  #allocates bits to scale factor bands given SMRs
 from codec.psychoac import *
 
 def Decode(scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams):
@@ -21,7 +21,8 @@ def Decode(scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams):
     rescaleLevel = 1.*(1<<overallScaleFactor)
     halfN = codingParams.nMDCTLines
     N = 2*halfN
-    # vectorizing the Dequantize function call
+    # vectorizing the Dequantize function call.
+    # nope. this is a poopy way to dequantize
     vDequantize = np.vectorize(Dequantize)
 
     # reconstitute the first halfN MDCT lines of this channel from the stored data
@@ -36,7 +37,7 @@ def Decode(scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams):
 
 
     # IMDCT and window the data for this channel
-    data = KBDWindow( IMDCT(mdctLine, halfN, halfN), alpha=4.)
+    data = compose_kbd_window(IMDCT(mdctLine, halfN, halfN), halfN, halfN, 4., 4.)
 
     # end loop over channels, return reconstituted time samples (pre-overlap-and-add)
     return data
@@ -81,7 +82,7 @@ def EncodeSingleChannel(data,codingParams):
 
     # window data for side chain FFT and also window and compute MDCT
     timeSamples = data
-    mdctTimeSamples = KBDWindow(data, alpha=4.)
+    mdctTimeSamples = compose_kbd_window(data, halfN, halfN, 4., 4.)
 
     mdctLines = MDCT(mdctTimeSamples, halfN, halfN)[:halfN]
 
@@ -110,7 +111,15 @@ def EncodeSingleChannel(data,codingParams):
         lowLine = sfBands.lowerLine[iBand]
         highLine = sfBands.upperLine[iBand] + 1  # extra value is because slices don't include last value
         nLines= sfBands.nLines[iBand]
-        scaleLine = np.max(np.abs( mdctLines[lowLine:highLine] ) )
+
+        # Patching this
+        if len(mdctLines[lowLine:highLine]) > 0:
+            scaleLine = np.max(np.abs( mdctLines[lowLine:highLine] ) )
+        else:
+            scaleLine = 0
+        # ---
+
+
         scaleFactor[iBand] = ScaleFactor(scaleLine, nScaleBits, bitAlloc[iBand])
         if bitAlloc[iBand]:
             mantissa[iMant:iMant+nLines] = vMantissa(mdctLines[lowLine:highLine],scaleFactor[iBand], nScaleBits, bitAlloc[iBand])

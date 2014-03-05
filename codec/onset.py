@@ -11,8 +11,45 @@ def onset_in_block(signal):
 
     This function will output a Boolean value. '''
     N = signal.size
-    thresh = 0.05
-    fft = np.fft.fft(block)[:N/2]
+    thresh = 0.07
+    fft = np.fft.fft(signal)[:N/2]
     
     energy = np.sum(np.linspace(0, 1, N/2) * np.abs(fft)**2) / (N/2.)
     return energy > thresh
+
+
+class WindowState(object):
+
+    def __init__(self):
+        self.state = 0
+
+    def step(self, is_onset):
+        ''' External method to advance the state machine's state. '''
+        if is_onset:
+            return self._transient()
+        else:
+            return self._no_transient()
+
+    def _transient(self):
+        ''' Internal method to transition state based on onset presence '''
+        if self.state == 0:
+            self.state = 1
+        elif self.state == 1:
+            self.state = 2
+        elif self.state == 2:
+            self.state = 2
+        elif self.state == 3:
+            self.state = 1
+        return self.state
+
+    def _no_transient(self):
+        ''' Internal method to transition state when no onset is present. '''
+        if self.state == 0:
+            self.state = 0
+        elif self.state == 1:
+            self.state = 2
+        elif self.state == 2:
+            self.state = 3
+        elif self.state == 3:
+            self.state = 0
+        return self.state
