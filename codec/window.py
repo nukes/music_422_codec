@@ -18,7 +18,6 @@ def HanningWindow(dataSampleArray):
 def KBDWindow(dataSampleArray, alpha=4.):
     ''' Performs a KBD window (with tuning param) on the sample '''
     N = float(len(dataSampleArray))
-    #window = np.zeros(N)
     
     # Create the numerators for half the KBD
     t = np.arange(int(N/2))
