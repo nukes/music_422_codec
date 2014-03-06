@@ -1,12 +1,14 @@
 import numpy as np
+from mdct import *
+from window import *
 
-from codec.window import KBDWindow, HanningWindow
-
+import matplotlib.pyplot as plt
+import scipy.io.wavfile as wave
 
 def SPL(intensity): 
     ''' Return SPL in dB for the given intensity vector '''
     intensity = np.maximum(np.finfo(float).eps, intensity)
-    spl = 96 + 10 * np.log10(intensity)
+    spl = 96. + 10 * np.log10(intensity)
     return np.maximum(-30, spl)
 
 
@@ -71,6 +73,7 @@ class Masker:
         self.spl = SPL
         self.isTonal = isTonal
         self.drop = 15. if isTonal else 15.5
+        ## self.drop = 6.025 + 0.275*self.z if isTonal else 2.025+0.175*self.z
 
     def IntensityAtFreq(self,freq): 
         ''' The intensity of this masker at frequency freq '''
@@ -146,6 +149,18 @@ def AssignMDCTLinesFromFreqLimits(nMDCTLines, sampleRate, flimit = cbFreqLimits)
     return np.array(assignment)
 
 
+def findPeaks(fftIntensity, thresh = 7.0):
+    
+    peaks = []
+    dataSPL = SPL(SPL(fftIntensity))
+
+    dataDiff = np.concatenate([[1],np.diff(dataSPL)])
+    dataDiff = np.concatenate([dataDiff,[-1]])
+    peakIndices = (dataDiff[0:-1] > 0) & (dataDiff[1:] < 0)
+
+    return peakIndices
+
+
 class ScaleFactorBands: 
     '''
     A set of scale factor bands (each of which will share a scale factor and a 
@@ -198,7 +213,7 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
     Nlines = N/2
 
     # Window the signal and perform an FFT
-    dft = np.fft.fft(HanningWindow(data))[:N/2]
+    dft = np.fft.fft(HanningWindow(data))[:Nlines]
     dft_intensity = (8./3. * 4./(N**2)) * np.abs(dft)**2
     dft_spl = SPL(dft_intensity)
 
@@ -207,54 +222,272 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
     mdct_scale_unwind = 6.02 * MDCTscale
     mdct_spl = SPL(4. * MDCTdata**2) - mdct_scale_unwind
 
-    ''' Masker Logic '''
     # Identify tonal and noise maskers
-    # Do this by breaking the spectrum into blocks and estimating peaks and SPLs
-    # The smaller peaks in each block should not contribute _much_ to the threshold
-    # So actually, a better way to do this is to find local maxima
-    # But! I'm just going to use the critical frequencies
-    freq_lines = np.linspace(0.5, Nlines+0.5, Nlines) * 0.5 * sampleRate / Nlines
-    bark_lines = Bark(freq_lines)
+    # Get tonal maskers
+    maskers = []
+    spl_peaks = findPeaks(dft_intensity)
 
-    combined_mask = np.zeros(N/2)
+    for i, isPeak in enumerate(spl_peaks):
+        if i+1 == Nlines: break
+        if isPeak:
+            if i == 0:
+                intensity_sum = dft_intensity[i] + dft_intensity[i+1]
+                f = .5*sampleRate/Nlines*(i*dft_intensity[i] + (i+1)*dft_intensity[i+1]) / intensity_sum
+            else:
+                intensity_sum = dft_intensity[i] + dft_intensity[i-1] + dft_intensity[i+1]
+                f = .5*sampleRate/Nlines*(i*dft_intensity[i] + (i-1)*dft_intensity[i-1] + (i+1)*dft_intensity[i+1]) / intensity_sum
+            spl = SPL(intensity_sum)
+            if spl > Thresh(f):    # Eliminate if below quiet threshold
+                maskers.append(Masker(f,spl))
+            dft_intensity[i] = dft_intensity[i+1] = 0    # eliminate for noise masker calculation
+            if i != 0:
+                dft_intensity[i-1] = 0
 
-    # Try using just the midpoints of the critical frequencies
+    # Get noise maskers: sum over energy not in tonal peaks
+    for i in range(sfBands.nBands):
+        masker_intensity = 0.
+        f = 0.
+        for j in range(sfBands.lowerLine[i],sfBands.upperLine[i]+1):
+            masker_intensity += dft_intensity[j]
+            f += dft_intensity[j]*j    # intensity-weighted average frequency
+
+        f = f*.5*sampleRate/Nlines / masker_intensity
+        spl = SPL(masker_intensity)
+
+        if spl > Thresh(f):    # Eliminate if below quiet threshold 
+            maskers.append(Masker(f,spl,isTonal=False))
+
+    # Compute SMRs
+    fline = .5*sampleRate/Nlines * np.linspace(0.5, Nlines+0.5, Nlines)
+    zline = Bark(fline)
+
+    # Masking threshold with decimation
+    masked_thresh = np.zeros(Nlines, dtype=np.float64)
+    if len(maskers) != 0:
+        max_masker = maskers[0].spl
+        last_freq = maskers[0].f
+        max_index = 0
+        for i in range(1,len(maskers)):
+
+            if abs(Bark(maskers[i].f) - Bark(last_freq)) < 0.5:
+                # store max masker value
+                if maskers[i].spl > max_masker:
+                    max_index = i
+                    max_masker = maskers[i].spl
+            else:
+                # add masker
+                masked_thresh += maskers[max_index].vIntensityAtBark(zline)
+                last_freq = maskers[i].f 
+                max_masker = maskers[i].spl
+                max_index = i
+        
+        if abs(Bark(maskers[-1].f) - Bark(last_freq)) >= 0.5:
+            masked_thresh += maskers[-1].vIntensityAtBark(zline)
+
+
+    # Global masked threshold
+    masked_thresh += Intensity(Thresh(fline))
+    masked_spl = SPL(masked_thresh)
+
+    smr = np.empty(sfBands.nBands, dtype=np.float64)
     for i in range(sfBands.nBands):
         lower = sfBands.lowerLine[i]
-        upper = sfBands.upperLine[i] + 1
-        crit_int = dft_intensity[lower:upper]
+        upper = sfBands.upperLine[i]+1
+        smr[i] = np.max(mdct_spl[lower:upper]-masked_spl[lower:upper])
 
-        # Compute the average SPL
-        avg_spl = np.sum(crit_int)
-        if avg_spl == 0.:
-            avg_spl = -30.
-        else:
-            avg_spl = 96. + 10. * np.log10(avg_spl)
+    return smr
 
-        # Take the mask frequency to be the center frequency
-        avg_freq = cbFreqCenters[i]
+    #-----------------------------------------------------------------------------
 
-        # Combine the masker into the total masking threshold
-        if avg_spl > Thresh(avg_freq):
-            masker = Masker(avg_freq, avg_spl, isTonal=False)
-            combined_mask += masker.vIntensityAtBark(bark_lines)
+#Testing code
+if __name__ == "__main__":
+    pass
 
-    ''' End Masker Logic '''
+    """
+    Fs = 48000.
+    Ns = (512, 1024, 2048)
+    components = ((0.47, 440.), (0.16, 550.), (0.12, 660.), (0.09, 880.), (0.04, 4400.), (0.03, 8800.))
 
-    # Combine these masking curves with hearing threshold
-    combined_mask += Intensity(Thresh(freq_lines))
-    combined_mask = SPL(combined_mask)
+    Fs, infile = wave.read("input.wav") #
+    infile = infile * 1./2**16
 
-    # Now, compute the SMR for each frequency
-    smr = np.subtract(mdct_spl, np.real(combined_mask))
+    for i, N in enumerate(Ns):
 
-    # Take the maximum SMR inside each critical band
-    critical_smr = []
-    for i in range(sfBands.nBands):
-        band_indices = np.linspace(0, sfBands.nLines[i]-1, sfBands.nLines[i])
-        band_indices += sfBands.lowerLine[i]
-        smrs_in_band = np.take(smr, band_indices.astype(int))
-        max_smr = np.amax(smrs_in_band)
-        critical_smr.append(max_smr)
+        print("\nPeaks found using N = %d" % N)
+        x = infile[:N]
+        X = np.abs(np.fft.fft(HanningWindow(x)))[0:N/2]
+        f = np.fft.fftfreq(N, 1./Fs)[0:N/2]
 
-    return np.array(critical_smr)
+        Xintensity = 8./3. * 4./N**2 * np.abs(X)**2 
+        Xspl = SPL(Xintensity)
+
+        peaks = findPeaks(Xintensity, Fs)
+
+        plt.figure(figsize=(14,6))
+        plt.semilogx(f,Xspl)
+        bLegend = True
+        for index, val in enumerate(peaks):
+            if val:
+                if bLegend:
+                    plt.plot(f[index], Xspl[index], 'b.', label="Estimated peaks")
+                    bLegend = False
+                else:
+                    plt.plot(f[index], Xspl[index], 'b.')
+                est_amp = np.sqrt(np.power(10.,(Xspl[index]-96)/10.))
+                print("Peak found at %.3f (%.2f dB_SPL ==> amp = %.2f)" % (f[index], Xspl[index], est_amp))
+
+    plt.title("N = %d" % (N))
+    plt.grid(True) 
+    plt.legend() 
+    plt.xlabel('Freq. (Hz)') 
+    plt.ylabel('SPL (dB)') 
+    plt.xlim(100, 1e4) 
+    plt.ylim(0, 96) 
+    plt.savefig('findPeaks'+str(N)+'_2.png', bbox_inches='tight')
+
+    # threshold in quiet comparison
+    N = 1024
+    n = np.arange(N, dtype=float)
+    x = infile[:N]
+    f = np.fft.fftfreq(N, 1./Fs)[0:N/2]
+    dft_intensity = np.abs(np.fft.fft(HanningWindow(x)))[0:N/2]
+    Xspl = 96. + 10.*np.log10( 8./3. * 4./N**2 * np.abs(dft_intensity)**2)
+
+    threshold = Thresh(f)
+    plt.figure(figsize=(14, 6)) 
+    plt.semilogx(f, threshold) 
+    plt.semilogx(f, Xspl) 
+    plt.xlim(50, Fs/2) 
+    plt.ylim(-20, 100) 
+    plt.xlabel("Freq. (Hz)") 
+    plt.ylabel("SPL (dB)") 
+    plt.title("Test signal vs. Threshold in quiet") 
+    plt.grid(True) 
+    plt.savefig('Sig_vs_Thresh_W14.png', bbox_inches='tight')
+
+    # Maskers
+    plt.figure(figsize=(14, 6)) 
+    plt.semilogx(f, threshold) 
+    plt.semilogx(f, Xspl) 
+
+    maskers = []
+    sampleRate = Fs
+    spl_peaks = findPeaks(dft_intensity, sampleRate)
+    Nlines = N/2
+
+    # scale factor bands
+    nMDCTLines = N/2
+    nLines = AssignMDCTLinesFromFreqLimits(nMDCTLines,Fs)
+    mySFB = ScaleFactorBands(nLines)
+    scaleplt = plt.vlines( (mySFB.lowerLine + 0.5)*Fs/(2.*nMDCTLines), -20, 150, linestyle='solid', colors='k', alpha=0.3 )
+    textLocations = (mySFB.lowerLine + 0.5)*Fs/(2.*nMDCTLines)
+    spacings = textLocations[1:] - textLocations[:-1]
+    textLocations = textLocations[1:]
+    mytext = 0
+    for val in textLocations:
+        mytext += 1
+        scaletextplt = plt.text(val-0.5*spacings[mytext-1],-15,str(mytext))
+
+    print(len(peaks))
+    exit()
+
+    for i, isPeak in enumerate(spl_peaks):
+        if i+1 == Nlines: break
+        if isPeak:
+            intensity_sum = dft_intensity[i] + dft_intensity[i-1] + dft_intensity[i+1]
+            f = .5*sampleRate/Nlines*(i*dft_intensity[i] + (i-1)*dft_intensity[i-1] + (i+1)*dft_intensity[i+1]) / intensity_sum
+            spl = SPL(intensity_sum)
+            if spl > Thresh(f):
+                maskers.append(Masker(f,spl))
+            dft_intensity[i] = dft_intensity[i-1] = dft_intensity[i+1] = 0    # eliminate for noise masker calculation
+    
+    for i in range(mySFB.nBands):
+        spl = 0.
+        freq = 0.
+        for j in range(mySFB.lowerLine[i],mySFB.upperLine[i]+1):
+            spl += dft_intensity[j]
+            freq += dft_intensity[j]*j    # intensity-weighted average frequency
+
+        freq = freq*.5*sampleRate/Nlines / spl
+        spl = SPL(spl)
+
+        if spl > Thresh(freq): 
+            maskers.append(Masker(freq,spl,isTonal=False))
+    
+    f = np.fft.fftfreq(N, 1./Fs)[0:N/2]
+    for m in maskers:
+        print(m.spl)
+        plt.semilogx(f, SPL(m.vIntensityAtBark(Bark(f)))) 
+
+    plt.xlim(50, Fs/2) 
+    plt.ylim(-20, 100) 
+    plt.xlabel("Freq. (Hz)")
+    plt.ylabel("SPL (dB)") 
+    plt.title("Signal, Threshold in Quiet and Maskers") 
+    plt.grid(True) 
+    plt.savefig('maskers.png', bbox_inches='tight')
+    
+    exit()
+    #############
+
+    plt.figure(figsize=(14, 6))
+    plt.semilogx(f, threshold , label='Threshold in quiet') 
+    plt.semilogx(f, Xspl, label='FFT SPL') 
+    for pair in components:
+        masker = Masker(pair[1], SPL(pair[0]**2),True)
+    plt.semilogx(f, SPL(masker.vIntensityAtBark(Bark(f))), alpha=0.5) 
+    plt.xlim(50, Fs/2) 
+    plt.ylim(-20, 100) 
+    plt.xlabel("Freq. (Hz)")
+    plt.ylabel("SPL (dB)") 
+    plt.title("Signal, Threshold in Quiet and Maskers") 
+    plt.grid(False)
+    
+
+    # Masking threshold
+    maskThresh = np.zeros_like(f)
+    intensity_squared_sum = np.zeros_like(maskThresh)
+    for pair in components:
+        masker = Masker(pair[1], SPL(pair[0]**2),True)
+        intensity_squared_sum += masker.vIntensityAtBark(Bark(f))**2
+    intensity_squared_sum += Intensity(Thresh(f))**2
+    maskThresh = SPL( np.sqrt(intensity_squared_sum) )
+    plt.plot(f,maskThresh,'r--',linewidth=2.0,label='Masked Threshold')
+
+    plt.legend()
+    plt.savefig('maskedThreshold.png', bbox_inches='tight')
+
+    #############
+
+    # SPL
+    MDCTspl = 96. + 10.*np.log10( 8./3. * 4./N**2 * np.abs(X)**2)
+    
+    n = np.arange(N, dtype=float)
+    x = np.zeros_like(n)
+    for pair in components:
+        x += pair[0]*np.cos(2*np.pi*pair[1]*n/Fs)
+    MDCTdata = MDCT(SineWindow(x),N/2,N/2)
+    
+    CalcSMRs(x, MDCTdata, 1, 48000, mySFB)
+
+
+    plt.figure(figsize=(14, 6)) 
+    plt.semilogx(f, Xspl, label='FFT SPL')
+    plt.semilogx(f, SPL( 8. * abs(MDCTdata)**2 ), label='MDCT SPL') 
+    plt.plot(f, maskThresh ,'r',linewidth=1.0,  label='Masked Threshold') 
+    scaleplt = plt.vlines((mySFB.lowerLine + 0.5)*Fs/(2.*nMDCTLines), -20, 150, linestyles='solid', colors='k', alpha=0.3) 
+    plt.xlim(50, Fs/2)
+    plt.ylim(-10, 100) 
+    plt.xlabel("Freq. (Hz)") 
+    plt.ylabel("SPL (dB)") 
+    plt.legend()
+
+    ax = plt.axes()
+    ax.yaxis.grid(True) #horizontal lines
+    mytext = 0
+    for val in textLocations:
+        mytext += 1
+        scaletextplt = plt.text(val-0.5*spacings[mytext-1], -5, str(mytext))
+    plt.savefig('spectraAndMaskingCurve.png', bbox_inches='tight')
+    """
+
