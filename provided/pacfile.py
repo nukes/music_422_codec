@@ -104,6 +104,7 @@ Description of the PAC File Format:
 from audiofile import * # base class
 from bitpack import *  # class for packing data into an array of bytes where each item's number of bits is specified
 from codec.psychoac import ScaleFactorBands, AssignMDCTLinesFromFreqLimits  # defines the grouping of MDCT lines into scale factor bands
+from codec.onset import onset_in_block, WindowState
 import pcodec    # module where the actual PAC coding functions reside(this module only specifies the PAC file format)
 import sys
 
@@ -386,9 +387,12 @@ if __name__=="__main__":
         outFile.OpenForWriting(codingParams) # (includes writing header)
 
         # Read the input file and pass its data to the output file to be written
+        machine = WindowState()
         while True:
             data=inFile.ReadDataBlock(codingParams)
             if not data: break  # we hit the end of the input file
+            machine.step(onset_in_block(data[0]))
+            print machine.state
             outFile.WriteDataBlock(data,codingParams)
             print ".",  # just to signal how far we've gotten to user
             sys.stdout.flush()
