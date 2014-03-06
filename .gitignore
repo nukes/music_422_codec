@@ -3,6 +3,7 @@
 *.pac
 *.ipynb
 samples/
+SQAM/
 
 *.py[cod]
 
