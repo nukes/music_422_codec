@@ -40,9 +40,6 @@ class TransientBuffer(object):
         '''
         return len(self._buffer)
 
-    def data_remains(self):
-        pass
-
     def next(self):
         ''' Ask the buffer for the next block from the WAV file. If it is
         empty, it will return an empty list. '''

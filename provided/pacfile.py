@@ -388,23 +388,19 @@ if __name__=="__main__":
 
         # Read the input file and pass its data to the output file to be written
         machine = WindowState()
-        i = 0
         while True:
             data=inFile.ReadDataBlock(codingParams)
             if not data: break  # we hit the end of the input file
             machine.step(onset_in_block(data[0]))
             #print machine.state
             outFile.WriteDataBlock(data,codingParams)
-            print i, ".",  # just to signal how far we've gotten to user
-            print data
-            i += 1
+            print ".",  # just to signal how far we've gotten to user
             sys.stdout.flush()
         # end loop over reading/writing the blocks
 
         # close the files
         inFile.Close(codingParams)
         outFile.Close(codingParams)
-        print "here!"
 
     elapsed = time.time()-elapsed
     print "\nDone with Encode/Decode test\n"
