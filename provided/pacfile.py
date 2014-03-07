@@ -350,8 +350,8 @@ if __name__=="__main__":
     from pcmfile import * # to get access to WAV file handling
     elapsed = time.time()
 
-    for Direction in ("Encode", "Decode"):
 #    for Direction in ("Decode"):
+    for Direction in ["Decode"]:
 
         # create the audio file objects
         if Direction == "Encode":
@@ -388,20 +388,23 @@ if __name__=="__main__":
 
         # Read the input file and pass its data to the output file to be written
         machine = WindowState()
+        i = 0
         while True:
             data=inFile.ReadDataBlock(codingParams)
             if not data: break  # we hit the end of the input file
             machine.step(onset_in_block(data[0]))
-            print machine.state
+            #print machine.state
             outFile.WriteDataBlock(data,codingParams)
-            print ".",  # just to signal how far we've gotten to user
+            print i, ".",  # just to signal how far we've gotten to user
+            print data
+            i += 1
             sys.stdout.flush()
         # end loop over reading/writing the blocks
 
         # close the files
         inFile.Close(codingParams)
         outFile.Close(codingParams)
-    # end of loop over Encode/Decode
+        print "here!"
 
     elapsed = time.time()-elapsed
     print "\nDone with Encode/Decode test\n"
