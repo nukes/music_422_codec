@@ -9,7 +9,7 @@ codec.py -- The actual encode/decode functions for the perceptual audio codec
 import numpy as np  # used for arrays
 
 from codec.quantize import *  # using vectorized versions (to use normal versions, uncomment lines 18,67 below defining vMantissa and vDequantize)
-from codec.window import SineWindow, KBDWindow  # current window used for MDCT -- implement KB-derived?
+from codec.window import KBDWindow, compose_kbd_window  # current window used for MDCT -- implement KB-derived?
 from codec.mdct import MDCT,IMDCT  # fast MDCT implementation (uses numpy FFT)
 from codec.bitalloc import BitAlloc  #allocates bits to scale factor bands given SMRs
 from codec.psychoac import *
@@ -36,7 +36,7 @@ def Decode(scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams):
 
 
     # IMDCT and window the data for this channel
-    data = KBDWindow( IMDCT(mdctLine, halfN, halfN), alpha=4.)
+    data = compose_kbd_window(IMDCT(mdctLine, halfN, halfN), halfN, halfN, 4., 4.)
 
     # end loop over channels, return reconstituted time samples (pre-overlap-and-add)
     return data
@@ -81,7 +81,7 @@ def EncodeSingleChannel(data,codingParams):
 
     # window data for side chain FFT and also window and compute MDCT
     timeSamples = data
-    mdctTimeSamples = KBDWindow(data, alpha=4.)
+    mdctTimeSamples = compose_kbd_window(data, halfN, halfN, 4., 4.)
 
     mdctLines = MDCT(mdctTimeSamples, halfN, halfN)[:halfN]
 
