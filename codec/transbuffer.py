@@ -10,6 +10,8 @@ from collections import deque
 import numpy as np
 from scipy.io.wavfile import read
 
+from codec.onset import WindowState, onset_in_block
+
 
 class TransientBuffer(object):
     ''' This is a wrapper that holds queueus. The first queue contains all of
@@ -42,18 +44,21 @@ class TransientBuffer(object):
         for i in range(buffersize):
             self._buffer.append(self._data.popleft())
 
-    def __len__(self):
-        ''' Remains compatible with Python len builtin. Returns the
-        length of the symmetic channels, not the total number of samples
-        contained therein.
-        '''
-        return len(self._buffer)
+        # Create the window controller and prime it with the buffer data
+        self._detects = 0
+        self.window_controller = WindowState()
+        self._next_window_state()
+
 
     def next(self):
         ''' Ask the buffer for the next block from the WAV file. If it is
         empty, it will return an empty list. If the lookahead buffer and the
         file buffer are at their last samples, it will zero pad the data.
         '''
+
+        # Get the window state for the current buffer
+        win = self.window_controller.state
+        print win
 
         # Normally, we would figure out how many blocks to emit
         # Right now, we're just going to use a magic number
@@ -65,7 +70,6 @@ class TransientBuffer(object):
         ret = []
         for x in range(buffer_pop):
             ret.append(self._buffer.popleft())
-        #print ret
         ret = np.array(ret).T
 
         # Repopulate the buffer with data
@@ -79,4 +83,23 @@ class TransientBuffer(object):
             ret = [np.concatenate([ret[0], np.zeros(pad_len)]),
                    np.concatenate([ret[1], np.zeros(pad_len)])]
 
+        # Move the window state
+        self._next_window_state()
+
         return ret
+
+    def _next_window_state(self):
+        if len(self._buffer) > 0:
+            channels = np.array(self._buffer).T
+            left = onset_in_block(np.array(channels[0]))
+            right = onset_in_block(np.array(channels[1]))
+            self.window_controller.step(left or right)
+            if self.window_controller.state == 1:
+                self._detects += 1
+
+    def __len__(self):
+        ''' Remains compatible with Python len builtin. Returns the
+        length of the symmetic channels, not the total number of samples
+        contained therein.
+        '''
+        return len(self._buffer)

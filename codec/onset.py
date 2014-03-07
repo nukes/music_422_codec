@@ -53,5 +53,3 @@ class WindowState(object):
         elif self.state == 3:
             self.state = 0
         return self.state
-
-
