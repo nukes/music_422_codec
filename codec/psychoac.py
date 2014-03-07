@@ -251,13 +251,14 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
             masker_intensity += dft_intensity[j]
             f += dft_intensity[j]*j    # intensity-weighted average frequency
 
+        masker_intensity += 1**-12
         f = f*.5*sampleRate/Nlines / masker_intensity
         spl = SPL(masker_intensity)
 
         if spl > Thresh(f):    # Eliminate if below quiet threshold 
             maskers.append(Masker(f,spl,isTonal=False))
 
-    # Compute SMRs
+
     fline = .5*sampleRate/Nlines * np.linspace(0.5, Nlines+0.5, Nlines)
     zline = Bark(fline)
 
@@ -289,12 +290,19 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
     masked_thresh += Intensity(Thresh(fline))
     masked_spl = SPL(masked_thresh)
 
+    # Compute SMRs
     smr = np.empty(sfBands.nBands, dtype=np.float64)
+    flag = sfBands.nBands / 2
     for i in range(sfBands.nBands):
         lower = sfBands.lowerLine[i]
         upper = sfBands.upperLine[i]+1
-        smr[i] = np.max(mdct_spl[lower:upper]-masked_spl[lower:upper])
-
+        if lower < upper:
+            if i < flag:
+                smr[i] = np.max(mdct_spl[lower:upper]-np.min(masked_spl[lower:upper]))
+            else:
+                smr[i] = np.max(mdct_spl[lower:upper]-np.mean(masked_spl[lower:upper]))
+        else:
+            smr[i] = 0.
     return smr
 
     #-----------------------------------------------------------------------------
