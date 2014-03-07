@@ -1,4 +1,4 @@
-''' Utility functions to write out WAV files '''
+''' Utility functions to interact with WAV files as needed. '''
 
 import struct
 
