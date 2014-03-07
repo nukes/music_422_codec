@@ -15,6 +15,9 @@ from codec.psychoac import ScaleFactorBands, AssignMDCTLinesFromFreqLimits
 class PACReader(object):
 
     def __init__(self, filename):
+        ''' Provide the filename of the PAC file to read in. The file is opened
+        and header read upon intialization.
+        '''
         self.file = open(filename, 'rb')
         self.tag = 'PAC '
 
@@ -25,7 +28,7 @@ class PACReader(object):
 
         # Grab all the delicious metadata
         (a, b, c, d, e, f) = struct.unpack('<LHLLHH',
-                                self.file.read(struct.calcsize('<LHLLHH')))
+                                 self.file.read(struct.calcsize('<LHLLHH')))
         self.sample_rate = a
         self.channels = b
         self.mdct_lines = d
@@ -77,7 +80,7 @@ class PACReader(object):
             bit_alloc = []
             scale_factor = []
             mant = np.zeros(self.mdct_lines, dtype=np.int32)
-            
+
             overall_scale = pb.ReadBits(self.scale_bits)
             for band in range(self.scale_factors.nBands):
                 alloc = pb.ReadBits(self.mant_bits)
@@ -115,12 +118,14 @@ class PACReader(object):
 class PACWriter(object):
 
     def __init__(self, filename, sample_rate, channels, samples, mdct_lines, scale_bits, mant_bits, target_bps):
+        ''' Provide parameters to fully specify a PAC file. The file is opened
+        and the header is written upon initialization. '''
         self.file = open(filename, 'wb')
         self.tag = 'PAC '
         self.file.write(self.tag)
 
         # Ensure that the number of samples in the file is a multiple of the
-        # number of MDCT half-block size (i.e. N/2, the positive spectrum) 
+        # number of MDCT half-block size (i.e. N/2, the positive spectrum)
         # and zero pad it as needed.
         if not samples % mdct_lines:
             samples += (mdct_lines - samples % mdct_lines)
@@ -129,8 +134,8 @@ class PACWriter(object):
         samples += mdct_lines
 
         # Write out the file attributes
-        header = struct.pack('<LHLLHH', sample_rate, channels, samples, \
-                                        mdct_lines, scale_bits, mant_bits)
+        header = struct.pack('<LHLLHH', sample_rate, channels, samples,
+                             mdct_lines, scale_bits, mant_bits)
         self.file.write(header)
 
         # Write out to the file the scale factor allocations
@@ -178,7 +183,7 @@ class PACWriter(object):
         cp.sfBands = self.scale_factors
         cp.targetBitsPerSample = self.target_bps
 
-        # TODO: Move this out of the file. This is retarded.
+        # TODO: Move this this out of the file. This is retarded.
         (scale_factor, bit_alloc, mant, overall_scale) = Encode(full_block, cp)
 
         # Write the encoded data to the file
@@ -228,4 +233,3 @@ class PACWriter(object):
 
     def close(self):
         self.file.close()
-
