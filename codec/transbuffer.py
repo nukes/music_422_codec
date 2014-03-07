@@ -17,6 +17,7 @@ class TransientBuffer(object):
         self.sample_rate, self._data = read(filename)
 
         # Normalize the 16 bit data to a range of -1...1
+        # TODO: This actually might not be legit...might need to use decode instead
         self._data = np.array(self._data)
         self._data = self._data / (2.**15)
 
