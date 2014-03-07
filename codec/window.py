@@ -21,22 +21,16 @@ def KBDWindow(dataSampleArray, alpha=4.):
     
     # Create the numerators for half the KBD
     t = np.arange(int(N/2))
-    print ">> ", len(t)
     window = np.i0(np.pi * alpha * np.sqrt(1.-(4.*t/N-1.)**2))
     window = np.cumsum(window)
 
     # Make sure to add the boundary value for the denominator calculation
     den = window[-1] + np.i0(np.pi * alpha * np.sqrt(1.-(4.*N/2./N-1.)**2))
 
-    print ">>> ", len(window)
-
     # Actually perform the operations to get the 'derived' nature
     # And then mirror the output to get a symmetric window
     window = np.sqrt(window/den)
-
-    print ">> ", len(window)
     window = np.concatenate((window, window[::-1]), axis=0)
-    print ">>> ", len(window)
 
     return dataSampleArray * window
 
