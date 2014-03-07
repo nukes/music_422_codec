@@ -9,7 +9,7 @@ import numpy as np
 from scipy.io.wavfile import read
 
 
-class WAVBuffer(object):
+class TransientBuffer(object):
     ''' Class that handles file reading from WAV files. '''
 
     def __init__(self, filename, buffersize=2048):
@@ -18,7 +18,7 @@ class WAVBuffer(object):
 
         # Normalize the 16 bit data to a range of -1...1
         self._data = np.array(self._data)
-        self._data = self._data / (2.**16)
+        self._data = self._data / (2.**15)
 
         # Apply useful metadata attributes
         self.channels = self._data.shape[1]
@@ -64,14 +64,21 @@ class WAVBuffer(object):
         for i in range(data_pop):
             self._buffer.append(self._data.popleft())
 
+        # If the buffer exists but is not the length we expect, zero pad
+        # This cheap-ass shortcut is a precedent in the provided file :3
+        if len(ret) > 0 and len(ret[0]) < block_size:
+            pad_len = block_size - len(ret[0])
+            ret = [np.concatenate([ret[0], np.zeros(pad_len)]),
+                   np.concatenate([ret[1], np.zeros(pad_len)])]
+
         return ret
 
 
 if __name__ == '__main__':
 
     # Read in the audio file
-    buf = WAVBuffer('sample.wav')
+    buf = TransientBuffer('sample.wav')
 
-    for i in range(buf._samples / 512):
+    for i in range(buf._samples / 1024):
         buf.next()
 
