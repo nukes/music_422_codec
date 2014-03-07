@@ -60,6 +60,8 @@ class PACReader(object):
             word = self.file.read(struct.calcsize('<L'))
 
             # Check if at the last block and need to finish the overlap-and-add
+            # Do this by looking if there is a header to the frame telling us
+            # how much data needs to be read from the block.
             if not word and self.overlap_block:
                 self.overlap_block = None
                 return self.overlap_block
@@ -81,6 +83,7 @@ class PACReader(object):
             scale_factor = []
             mant = np.zeros(self.mdct_lines, dtype=np.int32)
 
+            win_state = pb.ReadBits(2)
             overall_scale = pb.ReadBits(self.scale_bits)
             for band in range(self.scale_factors.nBands):
                 alloc = pb.ReadBits(self.mant_bits)
@@ -109,7 +112,7 @@ class PACReader(object):
             data[ch] = np.concatenate([data[ch], np.add(self.overlap_block[ch], decoded[:self.mdct_lines])])
             self.overlap_block[ch] = decoded[self.mdct_lines:]
 
-        return data
+        return data, win_state
 
     def close(self):
         self.file.close()
@@ -161,7 +164,7 @@ class PACWriter(object):
         self.mant_bits = mant_bits
         self.target_bps = target_bps
 
-    def write_data(self, data):
+    def write_data(self, data, win_state):
         ''' Write a block of signed float data in the range of -1...1 to the
         PACfile the object holds a reference to.
         '''
@@ -198,6 +201,8 @@ class PACWriter(object):
 
             # TODO: This is where we count the bits needed for block switching
             # i.e. This is where we add '2' to the count of bits needed
+            # Add in the two bits to encode what kind of window this would be
+            bits += 2
 
             # Convert the bits to bytes, using the conventional definition of
             # 8 bits to 1 byte.  Add a "spillover" byte if we are just shy of
@@ -213,6 +218,8 @@ class PACWriter(object):
             pb.Size(bytes)
 
             # Actually pack the data
+            # First we will pack the window information, then everything else!
+            pb.WriteBits(win_state, 2)
             pb.WriteBits(overall_scale[ch], self.scale_bits)
             i_mant = 0
             for band in range(self.scale_factors.nBands):
@@ -225,8 +232,6 @@ class PACWriter(object):
                     for i in range(self.scale_factors.nLines[band]):
                         pb.WriteBits(mant[ch][i_mant+i], bit_alloc[ch][band])
                     i_mant += self.scale_factors.nLines[band]
-
-            # TODO: This is where we would pack in the block switching data
 
             # Finally, write this damned data to the file
             self.file.write(pb.GetPackedData())

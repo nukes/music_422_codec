@@ -57,8 +57,8 @@ class TransientBuffer(object):
         '''
 
         # Get the window state for the current buffer
-        win = self.window_controller.state
-        print win
+        win_state = self.window_controller.state
+        print win_state
 
         # Normally, we would figure out how many blocks to emit
         # Right now, we're just going to use a magic number
@@ -86,7 +86,7 @@ class TransientBuffer(object):
         # Move the window state
         self._next_window_state()
 
-        return ret
+        return ret, win_state
 
     def _next_window_state(self):
         if len(self._buffer) > 0:
