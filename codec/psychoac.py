@@ -136,11 +136,13 @@ def AssignMDCTLinesFromFreqLimits(nMDCTLines, sampleRate, flimit = cbFreqLimits)
 
     previous_size = 0
     for limit in flimit:
-        size = np.argmax(np.less(limit, mdct_lines))
-        size = nMDCTLines if size == 0 else size  # Handle infinite freq center
+        if limit == float('inf'):
+            size = nMDCTLines
+        else:
+            size = np.argmax(np.less(limit, mdct_lines))
         assignment.append(size - previous_size)
         previous_size = size
-
+    #print "alloc: ", np.array(assignment), np.sum(np.array(assignment))
     return np.array(assignment)
 
 
@@ -297,8 +299,6 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
         else:
             smr[i] = 0.
     return np.array(smr)
-
-    #-----------------------------------------------------------------------------
 
 #Testing code
 if __name__ == "__main__":

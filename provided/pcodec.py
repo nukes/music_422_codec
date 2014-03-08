@@ -21,7 +21,8 @@ def Decode(scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams):
     rescaleLevel = 1.*(1<<overallScaleFactor)
     halfN = codingParams.nMDCTLines
     N = 2*halfN
-    # vectorizing the Dequantize function call
+    # vectorizing the Dequantize function call.
+    # nope. this is a poopy way to dequantize
     vDequantize = np.vectorize(Dequantize)
 
     # reconstitute the first halfN MDCT lines of this channel from the stored data

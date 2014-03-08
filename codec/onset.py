@@ -39,7 +39,7 @@ class WindowState(object):
         elif self.state == 2:
             self.state = 2
         elif self.state == 3:
-            self.state = 2
+            self.state = 1
         return self.state
 
     def _no_transient(self):

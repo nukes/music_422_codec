@@ -40,7 +40,7 @@ def compose_kbd_window(dataSampleArray, a, b, a_alpha=4., b_alpha=4.):
 
     # Make sure that a + b is the size of the window provided
     if a + b != len(dataSampleArray):
-        raise ValueError('Signal size must match the composed size a+b.')
+        raise ValueError('Signal size, ' + str(len(dataSampleArray)) + ', must match the composed size a+b, ' + str(a+b))
     
     # Create a window for size A
     a_ones = np.ones(2*a)

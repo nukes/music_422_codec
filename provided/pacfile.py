@@ -351,7 +351,7 @@ if __name__=="__main__":
     elapsed = time.time()
 
 #    for Direction in ("Decode"):
-    for Direction in ["Decode"]:
+    for Direction in ["Encode", "Decode"]:
 
         # create the audio file objects
         if Direction == "Encode":

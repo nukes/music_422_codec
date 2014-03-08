@@ -8,7 +8,7 @@ import numpy as np
 
 from provided.audiofile import CodingParams
 from provided.bitpack import PackedBits
-from provided.pcodec import Encode, EncodeSingleChannel, Decode
+from codec.coder import encode, decode
 from codec.psychoac import ScaleFactorBands, AssignMDCTLinesFromFreqLimits
 
 
@@ -40,7 +40,7 @@ class PACReader(object):
         bands = struct.unpack('<L', self.file.read(struct.calcsize('<L')))[0]
         lines = struct.unpack('<' + str(bands) + 'H',
                               self.file.read(struct.calcsize('<' + str(bands) + 'H')))
-        self.scale_factors = ScaleFactorBands(lines)
+        self.band_scale_factors = ScaleFactorBands(lines)
 
         # Prime the previous block needed for the overlap-and-add
         prev_block = []
@@ -64,11 +64,12 @@ class PACReader(object):
             # how much data needs to be read from the block.
             if not word and self.overlap_block:
                 self.overlap_block = None
-                return self.overlap_block
+                # TOOD: Fix by adding a "previous window" setting
+                return self.overlap_block, 0
             if not word and not self.overlap_block:
-                return
+                return None, None
 
-            # Compute the number of bytes we just read
+            # Compute the number of bytes we need to read
             bytes = struct.unpack('<L', word)[0]
             pb = PackedBits()
             pb.SetPackedData(self.file.read(bytes))
@@ -77,15 +78,34 @@ class PACReader(object):
             if pb.nBytes < bytes:
                 raise IOError('Only read a partial block of data.')
 
-            # Extract the delicious data from the packed bits
-            # TODO: This is where we would extract the window size for block switching
+            # Read information at the top of data block
+            win_state = pb.ReadBits(2)
+            overall_scale = pb.ReadBits(self.scale_bits)
+
+            # From the window state, we need to recompute the how the MDCT
+            # lines were allocated across the critical bands for this block
+            if win_state == 0:
+                boundary = 512
+                self.mdct_lines = 512
+            elif win_state == 1:
+                boundary = 512
+                self.mdct_lines = (512 + 64) / 2
+            elif win_state == 2:
+                boundary = 64
+                self.mdct_lines = 64
+            elif win_state == 3:
+                boundary = 64
+                self.mdct_lines = (512 + 64) / 2
+            else:
+                raise ValueError('Invalid window state: ' + str(win_state))
+            alloc = AssignMDCTLinesFromFreqLimits(self.mdct_lines, self.sample_rate)
+            self.band_scale_factors = ScaleFactorBands(alloc)
+
+            # Now extract the data
             bit_alloc = []
             scale_factor = []
             mant = np.zeros(self.mdct_lines, dtype=np.int32)
-
-            win_state = pb.ReadBits(2)
-            overall_scale = pb.ReadBits(self.scale_bits)
-            for band in range(self.scale_factors.nBands):
+            for band in range(self.band_scale_factors.nBands):
                 alloc = pb.ReadBits(self.mant_bits)
                 alloc += 1 if alloc else 0
                 bit_alloc.append(alloc)
@@ -94,24 +114,21 @@ class PACReader(object):
                 # If there are bits allocated to this band, extract the
                 # mantiassas and place them into the mantissa array
                 if bit_alloc[band]:
-                    m = np.empty(self.scale_factors.nLines[band], dtype=np.int32)
-                    for i in range(self.scale_factors.nLines[band]):
+                    m = np.empty(self.band_scale_factors.nLines[band], dtype=np.int32)
+                    for i in range(self.band_scale_factors.nLines[band]):
                         m[i] = pb.ReadBits(bit_alloc[band])
-                    lower = self.scale_factors.lowerLine[band]
-                    upper = self.scale_factors.upperLine[band] + 1
+                    lower = self.band_scale_factors.lowerLine[band]
+                    upper = self.band_scale_factors.upperLine[band] + 1
                     mant[lower:upper] = m
 
-            # TODO: Eliminate the Coding Params when we can
-            cp = CodingParams()
-            cp.nMDCTLines = self.mdct_lines
-            cp.nScaleBits = self.scale_bits
-            cp.sfBands = self.scale_factors
-
             # Decode the data
-            decoded = Decode(scale_factor, bit_alloc, mant, overall_scale, cp)
-            data[ch] = np.concatenate([data[ch], np.add(self.overlap_block[ch], decoded[:self.mdct_lines])])
-            self.overlap_block[ch] = decoded[self.mdct_lines:]
+            decoded = decode(scale_factor, bit_alloc, mant, overall_scale,
+                             self.mdct_lines, self.scale_bits, 
+                             self.band_scale_factors, win_state)
+            data[ch] = np.concatenate([data[ch], np.add(self.overlap_block[ch], decoded[:boundary])])
+            self.overlap_block[ch] = decoded[boundary:]
 
+        print type(data), win_state
         return data, win_state
 
     def close(self):
@@ -143,10 +160,10 @@ class PACWriter(object):
 
         # Write out to the file the scale factor allocations
         alloc = AssignMDCTLinesFromFreqLimits(mdct_lines, sample_rate)
-        self.scale_factors = ScaleFactorBands(alloc)
-        band_coding = struct.pack('<L', self.scale_factors.nBands)
-        line_coding = struct.pack('<' + str(self.scale_factors.nBands) + 'H',
-                                  *(self.scale_factors.nLines.tolist()))
+        self.band_scale_factors = ScaleFactorBands(alloc)
+        band_coding = struct.pack('<L', self.band_scale_factors.nBands)
+        line_coding = struct.pack('<' + str(self.band_scale_factors.nBands) + 'H',
+                                  *(self.band_scale_factors.nLines.tolist()))
         self.file.write(band_coding)
         self.file.write(line_coding)
 
@@ -169,35 +186,56 @@ class PACWriter(object):
         PACfile the object holds a reference to.
         '''
 
+        # Alter the mdct_line attribute and alter the concat block size
+        # based on the window state.
+        if win_state == 0:
+            boundary = 512
+            self.mdct_lines = 512
+        elif win_state == 1:
+            boundary = 64
+            self.mdct_lines = (512 + 64) / 2
+        elif win_state == 2:
+            boundary = 64
+            self.mdct_lines = 64
+        elif win_state == 3:
+            boundary = 512
+            self.mdct_lines = (512 + 64) / 2
+        else:
+            raise ValueError('Invalid window state: ' + str(win_state))
+        alloc = AssignMDCTLinesFromFreqLimits(self.mdct_lines, self.sample_rate)
+        self.band_scale_factors = ScaleFactorBands(alloc)
+
         # Construct the full block to write out
+        # We need to use the previous block for the overlap-and-add requirement
         full_block = []
         for ch in range(self.channels):
-            block = np.concatenate([self.previous_block[ch], data[ch]])
+            block = np.concatenate([self.previous_block[ch], data[ch][:boundary]])
             full_block.append(block)
-        self.previous_block = data
+            self.previous_block[ch] = data[ch][boundary:]
 
-        # TODO: Remove the CodingParams once they are no longer needed
-        cp = CodingParams()
-        cp.sampleRate = self.sample_rate
-        cp.nChannels = self.channels
-        cp.nMDCTLines = self.mdct_lines
-        cp.nScaleBits = self.scale_bits
-        cp.nMantSizeBits = self.mant_bits
-        cp.sfBands = self.scale_factors
-        cp.targetBitsPerSample = self.target_bps
+        print "DATA Size", len(data[0])
+        print "PAC DATA SIZE", len(full_block[0])
 
         # TODO: Move this this out of the file. This is retarded.
-        (scale_factor, bit_alloc, mant, overall_scale) = Encode(full_block, cp)
+        (scale_factor, bit_alloc, mant, overall_scale) = encode(full_block,
+                                                                win_state,
+                                                                self.channels,
+                                                                self.sample_rate,
+                                                                self.mdct_lines,
+                                                                self.scale_bits,
+                                                                self.mant_bits,
+                                                                self.band_scale_factors,
+                                                                self.target_bps)
 
         # Write the encoded data to the file
         for ch in range(self.channels):
 
             # Determine the size of the channel's block
             bits = self.scale_bits
-            for band in range(self.scale_factors.nBands):
+            for band in range(self.band_scale_factors.nBands):
                 bits += self.mant_bits + self.scale_bits
                 if bit_alloc[ch][band]:
-                    bits += bit_alloc[ch][band] * self.scale_factors.nLines[band]
+                    bits += bit_alloc[ch][band] * self.band_scale_factors.nLines[band]
 
             # TODO: This is where we count the bits needed for block switching
             # i.e. This is where we add '2' to the count of bits needed
@@ -222,16 +260,16 @@ class PACWriter(object):
             pb.WriteBits(win_state, 2)
             pb.WriteBits(overall_scale[ch], self.scale_bits)
             i_mant = 0
-            for band in range(self.scale_factors.nBands):
+            for band in range(self.band_scale_factors.nBands):
                 alloc = bit_alloc[ch][band]
                 if alloc:
                     alloc -= 1
                 pb.WriteBits(alloc, self.mant_bits)
                 pb.WriteBits(scale_factor[ch][band], self.scale_bits)
                 if bit_alloc[ch][band]:
-                    for i in range(self.scale_factors.nLines[band]):
+                    for i in range(self.band_scale_factors.nLines[band]):
                         pb.WriteBits(mant[ch][i_mant+i], bit_alloc[ch][band])
-                    i_mant += self.scale_factors.nLines[band]
+                    i_mant += self.band_scale_factors.nLines[band]
 
             # Finally, write this damned data to the file
             self.file.write(pb.GetPackedData())
