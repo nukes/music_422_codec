@@ -1,9 +1,5 @@
 import numpy as np
-from mdct import *
-from window import *
-
-import matplotlib.pyplot as plt
-import scipy.io.wavfile as wave
+from window import HanningWindow
 
 def SPL(intensity): 
     ''' Return SPL in dB for the given intensity vector '''
@@ -72,8 +68,7 @@ class Masker:
         self.z = Bark(f)
         self.spl = SPL
         self.isTonal = isTonal
-        self.drop = 15. if isTonal else 15.5
-        ## self.drop = 6.025 + 0.275*self.z if isTonal else 2.025+0.175*self.z
+        self.drop = 6.025 + 0.275*self.z if isTonal else 2.025+0.175*self.z
 
     def IntensityAtFreq(self,freq): 
         ''' The intensity of this masker at frequency freq '''
@@ -153,9 +148,7 @@ def findPeaks(fftIntensity, thresh = 7.0):
     
     peaks = []
     dataSPL = SPL(SPL(fftIntensity))
-
-    dataDiff = np.concatenate([[1],np.diff(dataSPL)])
-    dataDiff = np.concatenate([dataDiff,[-1]])
+    dataDiff = np.concatenate([ [1], np.diff(dataSPL), [-1] ])
     peakIndices = (dataDiff[0:-1] > 0) & (dataDiff[1:] < 0)
 
     return peakIndices
@@ -225,17 +218,17 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
     # Identify tonal and noise maskers
     # Get tonal maskers
     maskers = []
-    spl_peaks = findPeaks(dft_intensity)
+    spl_peaks = findPeaks(dft_intensity)[:Nlines+2]    # Ensure the peak list does not extend beyond Nlines
 
     for i, isPeak in enumerate(spl_peaks):
-        if i+1 == Nlines: break
         if isPeak:
-            if i == 0:
-                intensity_sum = dft_intensity[i] + dft_intensity[i+1]
-                f = .5*sampleRate/Nlines*(i*dft_intensity[i] + (i+1)*dft_intensity[i+1]) / intensity_sum
-            else:
+            if i:
                 intensity_sum = dft_intensity[i] + dft_intensity[i-1] + dft_intensity[i+1]
                 f = .5*sampleRate/Nlines*(i*dft_intensity[i] + (i-1)*dft_intensity[i-1] + (i+1)*dft_intensity[i+1]) / intensity_sum
+            else:
+                intensity_sum = dft_intensity[i] + dft_intensity[i+1]
+                f = .5*sampleRate/Nlines*(i*dft_intensity[i] + (i+1)*dft_intensity[i+1]) / intensity_sum
+                
             spl = SPL(intensity_sum)
             if spl > Thresh(f):    # Eliminate if below quiet threshold
                 maskers.append(Masker(f,spl))
@@ -251,7 +244,7 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
             masker_intensity += dft_intensity[j]
             f += dft_intensity[j]*j    # intensity-weighted average frequency
 
-        masker_intensity += 1**-12
+        masker_intensity += 1**-12    # Prevent division by zero
         f = f*.5*sampleRate/Nlines / masker_intensity
         spl = SPL(masker_intensity)
 
@@ -262,7 +255,7 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
     fline = .5*sampleRate/Nlines * np.linspace(0.5, Nlines+0.5, Nlines)
     zline = Bark(fline)
 
-    # Masking threshold with decimation
+    # Masking threshold with decimation: eliminate clusters of maskers by taking only strongest one
     masked_thresh = np.zeros(Nlines, dtype=np.float64)
     if len(maskers) != 0:
         max_masker = maskers[0].spl
@@ -289,7 +282,7 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
     # Global masked threshold
     masked_thresh += Intensity(Thresh(fline))
     masked_spl = SPL(masked_thresh)
-
+    
     # Compute SMRs
     smr = np.empty(sfBands.nBands, dtype=np.float64)
     flag = sfBands.nBands / 2
@@ -303,7 +296,7 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
                 smr[i] = np.max(mdct_spl[lower:upper]-np.mean(masked_spl[lower:upper]))
         else:
             smr[i] = 0.
-    return smr
+    return np.array(smr)
 
     #-----------------------------------------------------------------------------
 
