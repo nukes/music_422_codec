@@ -220,9 +220,10 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
     # Identify tonal and noise maskers
     # Get tonal maskers
     maskers = []
-    spl_peaks = findPeaks(dft_intensity)[:Nlines+2]    # Ensure the peak list does not extend beyond Nlines
+    spl_peaks = findPeaks(dft_intensity)
 
     for i, isPeak in enumerate(spl_peaks):
+        if i+1 == Nlines: break
         if isPeak:
             if i:
                 intensity_sum = dft_intensity[i] + dft_intensity[i-1] + dft_intensity[i+1]

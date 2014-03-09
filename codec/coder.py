@@ -172,14 +172,13 @@ def encode_channel(data, window_state, channels, sample_rate, mdct_lines, scale_
 
         # Applying a patch for empty critical band allocation
         # TODO: Document this better
-        '''
+
         if len(mdct_data[lower:upper]) > 0:
             scale_line = np.max(np.abs(mdct_data[lower:upper]))
         else:
             print "defect"
             scale_line = 0
-        '''
-        scale_line = np.max(np.abs(mdct_data[lower:upper]))
+        #scale_line = np.max(np.abs(mdct_data[lower:upper]))
 
         scale_factor[band] = ScaleFactor(scale_line, scale_bits, bit_alloc[band])
         if bit_alloc[band]:
