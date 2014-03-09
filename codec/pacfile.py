@@ -80,8 +80,7 @@ class PACReader(object):
                 raise IOError('Only read a partial block of data.')
 
             # Read information at the top of data block
-            # win_state = pb.ReadBits(2) 
-            win_state = 0
+            win_state = pb.ReadBits(2) 
             overall_scale = pb.ReadBits(self.scale_bits)
 
             # From the window state, we need to recompute the how the MDCT
@@ -130,7 +129,6 @@ class PACReader(object):
             data[ch] = np.concatenate([data[ch], np.add(self.overlap_block[ch], decoded[:boundary])])
             self.overlap_block[ch] = decoded[boundary:]
 
-        print type(data), win_state
         return data, win_state
 
     def close(self):
@@ -255,7 +253,7 @@ class PACWriter(object):
             # TODO: This is where we count the bits needed for block switching
             # i.e. This is where we add '2' to the count of bits needed
             # Add in the two bits to encode what kind of window this would be
-            # bits += 2
+            bits += 2
 
             # Convert the bits to bytes, using the conventional definition of
             # 8 bits to 1 byte.  Add a "spillover" byte if we are just shy of
@@ -272,7 +270,7 @@ class PACWriter(object):
 
             # Actually pack the data
             # First we will pack the window information, then everything else!
-            # pb.WriteBits(win_state, 2)
+            pb.WriteBits(win_state, 2)
             pb.WriteBits(overall_scale[ch], self.scale_bits)
             i_mant = 0
             for band in range(self.band_scale_factors.nBands):
