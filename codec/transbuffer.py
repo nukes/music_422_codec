@@ -62,9 +62,9 @@ class TransientBuffer(object):
 
         # Based on the window state, pop the correct amount of data
         if win_state == 0 or win_state == 3:
-            block_size = 1024
+            block_size = 512
         if win_state == 1 or win_state == 2:
-            block_size = 128
+            block_size = 64
 
         # Normally, we would figure out how many blocks to emit
         # Right now, we're just going to use a magic number

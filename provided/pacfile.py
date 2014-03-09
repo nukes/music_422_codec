@@ -251,6 +251,7 @@ class PACFile(AudioFile):
         fullBlockData=[]
         for iCh in range(codingParams.nChannels):
             fullBlockData.append( np.concatenate( ( codingParams.priorBlock[iCh], data[iCh]) ) )
+            print "LEN:", len(fullBlockData[0])
         codingParams.priorBlock = data  # current pass's data is next pass's prior block data
 
         # (ENCODE HERE) Encode the full block of multi=channel data
@@ -351,7 +352,7 @@ if __name__=="__main__":
     elapsed = time.time()
 
 #    for Direction in ("Decode"):
-    for Direction in ["Decode"]:
+    for Direction in ["Encode"]:
 
         # create the audio file objects
         if Direction == "Encode":

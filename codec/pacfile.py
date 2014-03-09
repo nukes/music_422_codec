@@ -209,11 +209,13 @@ class PACWriter(object):
 
         # Construct the full block to write out
         # We need to use the previous block for the overlap-and-add requirement
+        # Removed the 'boundary' from the data slice
+        print len(data[0])
         full_block = []
         for ch in range(self.channels):
-            block = np.concatenate([self.previous_block[ch], data[ch][:boundary]])
+            block = np.concatenate([self.previous_block[ch], data[ch]])
             full_block.append(block)
-            self.previous_block[ch] = data[ch][boundary:]
+            self.previous_block[ch] = data[ch]
 
         print "DATA Size", len(data[0])
         print "PAC DATA SIZE", len(full_block[0])
