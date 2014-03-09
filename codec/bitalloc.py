@@ -95,7 +95,12 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
         # Indices of bands we're not done filling (the first max value in each available band)
         #print (SMR < max(SMR[availableBands])).nonzero()[0]
         indices = (SMR == max(SMR[availableBands])).nonzero()[0]
+        
+        #print "---"
+        #print SMR
+        #print nLines
         #print SMR == max(SMR[availableBands])
+
         if indices.size == 0: break
 
         for i in indices:

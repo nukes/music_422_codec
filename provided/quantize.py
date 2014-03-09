@@ -125,7 +125,7 @@ def ScaleFactor(aNum, nScaleBits=3, nMantBits=5):
     while scale < maxScale and (signBit & code) == 0:
         code <<= 1
         scale += 1
-
+        
     ### YOUR CODE ENDS HERE ###
 
     return scale

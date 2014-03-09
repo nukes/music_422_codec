@@ -11,10 +11,13 @@ def onset_in_block(signal):
 
     This function will output a Boolean value. '''
     N = signal.size
-    thresh = 0.07
+    thresh = 0.1
     fft = np.fft.fft(signal)[:N/2]
+
+    weights = np.zeros(N/2)
+    weights[N/4:] = 1.
     
-    energy = np.sum(np.linspace(0, 1, N/2) * np.abs(fft)**2) / (N/2.)
+    energy = np.sum(weights * np.abs(fft)**2) / (N/2.)
     return energy > thresh
 
 

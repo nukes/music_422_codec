@@ -173,6 +173,7 @@ class ScaleFactorBands:
         self.nBands = len(nLines)
         self.nLines = np.array(nLines)
         self.lowerLine = np.append(0, np.cumsum(nLines)[:-1])
+        self.upperLine = nLines + self.lowerLine
         self.upperLine = np.add(self.nLines, np.subtract(self.lowerLine, 1))
 
 

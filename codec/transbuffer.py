@@ -22,7 +22,7 @@ class TransientBuffer(object):
     face of transients and attack onsets.
     '''
 
-    def __init__(self, filename, buffersize=1152):
+    def __init__(self, filename, buffersize=1024):
         ''' Give a filename to have the control buffer wrap it. '''
         self.sample_rate, self._data = read(filename)
 

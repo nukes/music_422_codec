@@ -97,7 +97,6 @@ class PCMFile(AudioFile):
             temp[signs] *= -1.  # returns signs
             data.append(temp)  # data[iCh]
         # return data
-        print "LEN2", len(data[0])
         return data
 
 

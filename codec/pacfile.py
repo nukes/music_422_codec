@@ -6,9 +6,7 @@ import struct
 
 import numpy as np
 
-from provided.audiofile import CodingParams
 from provided.bitpack import PackedBits
-from provided.pcodec import Encode
 from codec.coder import encode, decode
 from codec.psychoac import ScaleFactorBands, AssignMDCTLinesFromFreqLimits
 
@@ -208,39 +206,21 @@ class PACWriter(object):
         # Construct the full block to write out
         # We need to use the previous block for the overlap-and-add requirement
         # Removed the 'boundary' from the data slice
-        print len(data[0])
         full_block = []
         for ch in range(self.channels):
             block = np.concatenate([self.previous_block[ch], data[ch]])
             full_block.append(block)
             self.previous_block[ch] = data[ch]
 
-        print "DATA Size", len(data[0])
-        print "PAC DATA SIZE", len(full_block[0])
-
-        # TODO: Move this this out of the file. This is retarded.
-        cp = CodingParams()
-        cp.nChannels = self.channels
-        cp.sampleRate = self.sample_rate
-        cp.nMDCTLines = self.mdct_lines
-        cp.nScaleBits = self.scale_bits
-        cp.nMantSizeBits = self.mant_bits
-        cp.sfBands = self.band_scale_factors
-        cp.targetBitsPerSample = self.target_bps
-
-        flag = 0
-        if flag == 0:
-            (scale_factor, bit_alloc, mant, overall_scale) = Encode(full_block, cp)
-        else:
-            (scale_factor, bit_alloc, mant, overall_scale) = encode(full_block,
-                                                                    win_state,
-                                                                    self.channels,
-                                                                    self.sample_rate,
-                                                                    self.mdct_lines,
-                                                                    self.scale_bits,
-                                                                    self.mant_bits,
-                                                                    self.band_scale_factors,
-                                                                    self.target_bps)
+        (scale_factor, bit_alloc, mant, overall_scale) = encode(full_block,
+                                                                win_state,
+                                                                self.channels,
+                                                                self.sample_rate,
+                                                                self.mdct_lines,
+                                                                self.scale_bits,
+                                                                self.mant_bits,
+                                                                self.band_scale_factors,
+                                                                self.target_bps)
 
         # Write the encoded data to the file
         for ch in range(self.channels):
