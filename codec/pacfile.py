@@ -8,6 +8,7 @@ import numpy as np
 
 from provided.audiofile import CodingParams
 from provided.bitpack import PackedBits
+from provided.pcodec import Encode
 from codec.coder import encode, decode
 from codec.psychoac import ScaleFactorBands, AssignMDCTLinesFromFreqLimits
 
@@ -47,7 +48,7 @@ class PACReader(object):
         for ch in range(self.channels):
             prev_block.append(np.zeros(self.mdct_lines, dtype=np.float64))
         self.overlap_block = prev_block
-
+ 
     def read_block(self):
         ''' Read a block of data from the PAC file. '''
 
@@ -79,7 +80,8 @@ class PACReader(object):
                 raise IOError('Only read a partial block of data.')
 
             # Read information at the top of data block
-            win_state = pb.ReadBits(2)
+            # win_state = pb.ReadBits(2) 
+            win_state = 0
             overall_scale = pb.ReadBits(self.scale_bits)
 
             # From the window state, we need to recompute the how the MDCT
@@ -217,6 +219,16 @@ class PACWriter(object):
         print "PAC DATA SIZE", len(full_block[0])
 
         # TODO: Move this this out of the file. This is retarded.
+        cp = CodingParams()
+        cp.nChannels = self.channels
+        cp.sampleRate = self.sample_rate
+        cp.nMDCTLines = self.mdct_lines
+        cp.nScaleBits = self.scale_bits
+        cp.nMantSizeBits = self.mant_bits
+        cp.sfBands = self.band_scale_factors
+        cp.targetBitsPerSample = self.target_bps
+        (scale_factor, bit_alloc, mant, overall_scale) = Encode(full_block, cp)
+        '''
         (scale_factor, bit_alloc, mant, overall_scale) = encode(full_block,
                                                                 win_state,
                                                                 self.channels,
@@ -226,6 +238,7 @@ class PACWriter(object):
                                                                 self.mant_bits,
                                                                 self.band_scale_factors,
                                                                 self.target_bps)
+        '''
 
         # Write the encoded data to the file
         for ch in range(self.channels):
@@ -240,7 +253,7 @@ class PACWriter(object):
             # TODO: This is where we count the bits needed for block switching
             # i.e. This is where we add '2' to the count of bits needed
             # Add in the two bits to encode what kind of window this would be
-            bits += 2
+            # bits += 2
 
             # Convert the bits to bytes, using the conventional definition of
             # 8 bits to 1 byte.  Add a "spillover" byte if we are just shy of
@@ -257,7 +270,7 @@ class PACWriter(object):
 
             # Actually pack the data
             # First we will pack the window information, then everything else!
-            pb.WriteBits(win_state, 2)
+            # pb.WriteBits(win_state, 2)
             pb.WriteBits(overall_scale[ch], self.scale_bits)
             i_mant = 0
             for band in range(self.band_scale_factors.nBands):

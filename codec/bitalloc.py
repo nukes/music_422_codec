@@ -61,50 +61,60 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
       """
 
     # Enforce 16 bit input
-    if maxMantBits > 16: maxMantBits = 16
+    if maxMantBits > 16: 
+        maxMantBits = 16
 
     # Initialize vector containing number of bits allocated to each band
     bits = np.zeros(nBands, dtype=np.int32)
 
     # Update SMR vector through each bit allocation iteration
-    SMR = np.copy(SMR)
+    #SMR = np.copy(SMR)
     
     ######## Water-filling ########
 
     remBits = bitBudget    # remaining bits in budget
     lastBudget = bitBudget    # remaining bit budget from last iteration
 
-    availableBands = np.ones(nBands, dtype=bool)    # Indicates which bands to allocate bits to
+    # Flags for which bands we can allocate to
+    # Initialize it such that everything can be allocated to
+    availableBands = np.ones(nBands, dtype=bool)
 
     while True:
 
-        # Stop conditions: 
-            # All bands have been filled
-        if np.all(np.logical_not(availableBands)): break
+        # Are there no more bands to fill anymore? If so, break the rate
+        # distortion loop.
+        if not np.any(availableBands):
+            break
 
-            # All bands are saturated
-        if np.all(bits == maxMantBits): break
+        # If all bands are saturated -- that is, we were bit-wealthy -- then
+        # break this loop.
+        # TODO: This condition can be pulled outside of the loop
+        if np.all(bits == maxMantBits):
+            break
 
         # Indices of bands we're not done filling (the first max value in each available band)
+        #print (SMR < max(SMR[availableBands])).nonzero()[0]
         indices = (SMR == max(SMR[availableBands])).nonzero()[0]
+        #print SMR == max(SMR[availableBands])
         if indices.size == 0: break
 
         for i in indices:
+          #print i, remBits, nLines[i]
           if remBits >= nLines[i]:
             if bits[i] < maxMantBits:
               remBits -= nLines[i]
               bits[i] += 1
-            if bits[i] == maxMantBits:
+            elif bits[i] == maxMantBits:
               availableBands[i] = False
             SMR[i] -= DBTOBITS
           else:
             availableBands[i] = False
-
+        #print "Waterfilling round: ", bits
         # Stop if no bits were assigned in the last iteration
         if remBits == lastBudget: break
-
         lastBudget = remBits
 
+    #print 'Finish: ', bits
 
     # Check for single bits and negative values
     bits[bits<=1] = 0

@@ -21,13 +21,53 @@ class TestBitAllocation(unittest.TestCase):
                     -10.49613988, 11.71039088, -22.9936503, -38.68104066, -80.88977674]
 
     def test_compare_bit_allocation(self):
-        lines = AssignMDCTLinesFromFreqLimits(512, 48000)
-        expected = test.BitAlloc(1800, 16, 25, lines, np.array(self.smr))
-        computed = real.BitAlloc(1800, 16, 25, lines, np.array(self.smr))
-        print expected, np.sum(np.multiply(expected, lines))
-        print list(computed), np.sum(np.multiply(computed, lines))
-        print list(expected - computed)
-        pass
+        budget = 1300
+        lines = AssignMDCTLinesFromFreqLimits(512, 44100)
+        expected = test.BitAlloc(budget, 16, 25, lines, np.array(self.smr))
+        computed = real.BitAlloc(budget, 16, 25, lines, np.array(self.smr))
+        expected_alloc = np.sum(np.multiply(computed, lines))
+        computed_alloc = np.sum(np.multiply(expected, lines))
+        print "Long window"
+        print expected
+        print computed
+        '''
+        print "Theirs ------"
+        print expected, expected_alloc
+        print "Ours --------"
+        print list(computed), computed_alloc
+        print "Diff --------"
+        print list(expected - computed), (expected_alloc - computed_alloc)
+        '''
+        self.assertTrue(budget >= expected_alloc)
+        self.assertTrue(budget >= computed_alloc)
+        #print (budget - expected_alloc) > lines
+
+    def test_compare_in_transition_window(self):
+        budget = 655
+        lines = AssignMDCTLinesFromFreqLimits(288, 44100)
+        expected = test.BitAlloc(budget, 16, 25, lines, np.array(self.smr))
+        computed = real.BitAlloc(budget, 16, 25, lines, np.array(self.smr))
+        expected_alloc = np.sum(np.multiply(computed, lines))
+        computed_alloc = np.sum(np.multiply(expected, lines))
+        self.assertTrue(budget >= expected_alloc)
+        self.assertTrue(budget >= computed_alloc)
+        print "Transition Window "
+        print expected, expected_alloc
+        print computed, computed_alloc
+
+    def test_compare_in_short_window(self):
+        budget = 5
+        lines = AssignMDCTLinesFromFreqLimits(64, 44100)
+        expected = test.BitAlloc(budget, 16, 25, lines, np.array(self.smr))
+        computed = real.BitAlloc(budget, 16, 25, lines, np.array(self.smr))
+        expected_alloc = np.sum(np.multiply(expected, lines))
+        computed_alloc = np.sum(np.multiply(computed, lines))
+        # This Condition, surprisingly, fails!
+        #self.assertTrue(budget >= expected_alloc)
+        self.assertTrue(budget >= computed_alloc)
+        print "Short Window"
+        print expected, expected_alloc
+        print computed, computed_alloc
 
 
 if __name__ == '__main__':

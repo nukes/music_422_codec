@@ -11,7 +11,7 @@ import numpy as np  # used for arrays
 from codec.quantize import *  # using vectorized versions (to use normal versions, uncomment lines 18,67 below defining vMantissa and vDequantize)
 from codec.window import KBDWindow, compose_kbd_window  # current window used for MDCT -- implement KB-derived?
 from codec.mdct import MDCT,IMDCT  # fast MDCT implementation (uses numpy FFT)
-from codec.bitalloc import BitAlloc  #allocates bits to scale factor bands given SMRs
+from provided.bitalloc import BitAlloc  #allocates bits to scale factor bands given SMRs
 from codec.psychoac import *
 
 def Decode(scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams):
@@ -111,7 +111,15 @@ def EncodeSingleChannel(data,codingParams):
         lowLine = sfBands.lowerLine[iBand]
         highLine = sfBands.upperLine[iBand] + 1  # extra value is because slices don't include last value
         nLines= sfBands.nLines[iBand]
-        scaleLine = np.max(np.abs( mdctLines[lowLine:highLine] ) )
+
+        # Patching this
+        if len(mdctLines[lowLine:highLine]) > 0:
+            scaleLine = np.max(np.abs( mdctLines[lowLine:highLine] ) )
+        else:
+            scaleLine = 0
+        # ---
+
+
         scaleFactor[iBand] = ScaleFactor(scaleLine, nScaleBits, bitAlloc[iBand])
         if bitAlloc[iBand]:
             mantissa[iMant:iMant+nLines] = vMantissa(mdctLines[lowLine:highLine],scaleFactor[iBand], nScaleBits, bitAlloc[iBand])

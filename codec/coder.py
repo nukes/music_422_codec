@@ -79,7 +79,7 @@ def encode(data, window_state, channels, sample_rate, mdct_lines, scale_bits, ma
         mant.append(c)
         overall_scale.append(d)
 
-    print bit_alloc
+    #print bit_alloc
     return (scale_factors, bit_alloc, mant, overall_scale)
 
 
@@ -142,10 +142,17 @@ def encode_channel(data, window_state, channels, sample_rate, mdct_lines, scale_
     budget -= scale_bits * (band_scale_factors.nBands + 1)
     budget -= mant_bits * band_scale_factors.nBands
     budget -= 2
+    budget = int(np.floor(budget))
+    print "Block budget: ", budget
 
     # Figure out how to allocate the bit budget give the signal-to-mask
-    # perceptual guide.
-    bit_alloc = BitAlloc(budget, mant_bits, band_scale_factors.nBands, band_scale_factors.nLines, smr_data)
+    # perceptual indicators. Larger SMR values in a critical band mean that the
+    # frequencies within that band require more bits to express. We are
+    # reducing quantization noise by allocation more bits where we hear content
+    bit_alloc = BitAlloc(budget, max_mant_bits, band_scale_factors.nBands, band_scale_factors.nLines, smr_data)
+    print "-- alloc --"
+    print band_scale_factors.nLines
+    print bit_alloc, np.sum(bit_alloc * band_scale_factors.nLines)
 
     # Using these bit allocations, quantize the MDCT data for each band using
     # the perceptual bit resolution. First, figure out how many bits we are

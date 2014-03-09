@@ -58,6 +58,7 @@ class TransientBuffer(object):
 
         # Get the window state for the current buffer
         win_state = self.window_controller.state
+        win_state = 0
 
         # Based on the window state, pop the correct amount of data
         if win_state == 0 or win_state == 3:

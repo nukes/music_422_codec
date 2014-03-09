@@ -35,7 +35,7 @@ def write_wav_data(filename, data):
     header = struct.pack('<4sL4s4sLHHLLHH4sL', 'RIFF',  36 + bytes, 'WAVE', 'fmt ', 16,
                          1, 2, 44100, 44100*2*(16/8), 2*(16/8), 16, 'data', bytes)
 
-    f = open('test_out.wav', 'wb')
+    f = open(filename, 'wb')
     f.write(header)
     f.write(block.tostring())
     f.close()

@@ -351,7 +351,7 @@ if __name__=="__main__":
     elapsed = time.time()
 
 #    for Direction in ("Decode"):
-    for Direction in ["Encode", "Decode"]:
+    for Direction in ["Decode"]:
 
         # create the audio file objects
         if Direction == "Encode":
@@ -371,7 +371,7 @@ if __name__=="__main__":
         if Direction == "Encode":
             # set additional parameters that are needed for PAC file
             # (beyond those set by the PCM file on open)
-            codingParams.nMDCTLines = 1024
+            codingParams.nMDCTLines = 512
             codingParams.nScaleBits = 3
             codingParams.nMantSizeBits = 4
             codingParams.targetBitsPerSample = 2.9
@@ -391,7 +391,7 @@ if __name__=="__main__":
         while True:
             data=inFile.ReadDataBlock(codingParams)
             if not data: break  # we hit the end of the input file
-            machine.step(onset_in_block(data[0]))
+            #machine.step(onset_in_block(data[0]))
             #print machine.state
             outFile.WriteDataBlock(data,codingParams)
             print ".",  # just to signal how far we've gotten to user
