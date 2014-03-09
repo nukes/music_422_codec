@@ -210,7 +210,7 @@ class PACFile(AudioFile):
 
     def WriteFileHeader(self,codingParams):
         """
-        Writes the PAC file header for a just-opened PAC file and uses codingParams
+        Writes the PAC file header for a just-o0pened PAC file and uses codingParams
         attributes for the header data.  File pointer ends at start of data portion.
         """
         # write a header tag

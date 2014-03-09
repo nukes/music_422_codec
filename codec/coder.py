@@ -6,7 +6,7 @@ from codec.quantize import ScaleFactor, vMantissa, vDequantize
 from codec.window import compose_kbd_window
 from codec.mdct import MDCT, IMDCT
 from codec.psychoac import CalcSMRs
-from codec.bitalloc import BitAlloc
+from provided.bitalloc import BitAlloc
 
 
 def decode(scale_factor, bit_alloc, mant, overall_scale, mdct_lines, scale_bits, band_scale_factors, window_state):
@@ -37,6 +37,7 @@ def decode(scale_factor, bit_alloc, mant, overall_scale, mdct_lines, scale_bits,
         half_n = half_long
         samples = IMDCT(mdct_data, half_long, half_long)
         win_samples = compose_kbd_window(samples, half_long, half_long, 4., 4.)
+        #win_samples = SineWindow(samples)
     elif window_state == 1:
         half_n = (half_long + half_short) / 2
         print "MDCT SIZE ", len(mdct_data)
@@ -143,7 +144,6 @@ def encode_channel(data, window_state, channels, sample_rate, mdct_lines, scale_
     budget -= mant_bits * band_scale_factors.nBands
     budget -= 2
     budget = int(np.floor(budget))
-    print "Block budget: ", budget
 
     # Figure out how to allocate the bit budget give the signal-to-mask
     # perceptual indicators. Larger SMR values in a critical band mean that the
@@ -151,7 +151,6 @@ def encode_channel(data, window_state, channels, sample_rate, mdct_lines, scale_
     # reducing quantization noise by allocation more bits where we hear content
     bit_alloc = BitAlloc(budget, max_mant_bits, band_scale_factors.nBands, band_scale_factors.nLines, smr_data)
     print "-- alloc --"
-    print band_scale_factors.nLines
     print bit_alloc, np.sum(bit_alloc * band_scale_factors.nLines)
 
     # Using these bit allocations, quantize the MDCT data for each band using
@@ -173,10 +172,14 @@ def encode_channel(data, window_state, channels, sample_rate, mdct_lines, scale_
 
         # Applying a patch for empty critical band allocation
         # TODO: Document this better
+        '''
         if len(mdct_data[lower:upper]) > 0:
             scale_line = np.max(np.abs(mdct_data[lower:upper]))
         else:
+            print "defect"
             scale_line = 0
+        '''
+        scale_line = np.max(np.abs(mdct_data[lower:upper]))
 
         scale_factor[band] = ScaleFactor(scale_line, scale_bits, bit_alloc[band])
         if bit_alloc[band]:

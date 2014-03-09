@@ -227,18 +227,20 @@ class PACWriter(object):
         cp.nMantSizeBits = self.mant_bits
         cp.sfBands = self.band_scale_factors
         cp.targetBitsPerSample = self.target_bps
-        (scale_factor, bit_alloc, mant, overall_scale) = Encode(full_block, cp)
-        '''
-        (scale_factor, bit_alloc, mant, overall_scale) = encode(full_block,
-                                                                win_state,
-                                                                self.channels,
-                                                                self.sample_rate,
-                                                                self.mdct_lines,
-                                                                self.scale_bits,
-                                                                self.mant_bits,
-                                                                self.band_scale_factors,
-                                                                self.target_bps)
-        '''
+
+        flag = 0
+        if flag == 0:
+            (scale_factor, bit_alloc, mant, overall_scale) = Encode(full_block, cp)
+        else:
+            (scale_factor, bit_alloc, mant, overall_scale) = encode(full_block,
+                                                                    win_state,
+                                                                    self.channels,
+                                                                    self.sample_rate,
+                                                                    self.mdct_lines,
+                                                                    self.scale_bits,
+                                                                    self.mant_bits,
+                                                                    self.band_scale_factors,
+                                                                    self.target_bps)
 
         # Write the encoded data to the file
         for ch in range(self.channels):
