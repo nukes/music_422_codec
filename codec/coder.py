@@ -136,7 +136,7 @@ def encode_channel(samples, window_state, channels, sample_rate, mdct_lines, sca
     # switching so that we remain critically sampled. Finally, if we are in a
     # short window, up the data rate we so don't have frequency thrashing.
     budget = target_bps * half_n
-    #budget += bitReservoir if window_state == 2 else 0
+    budget += bitReservoir #if window_state == 2 else 0
     budget -= scale_bits * (band_scale_factors.nBands + 1)
     budget -= mant_bits * band_scale_factors.nBands
     budget -= 2
@@ -146,9 +146,10 @@ def encode_channel(samples, window_state, channels, sample_rate, mdct_lines, sca
     # perceptual indicators. Larger SMR values in a critical band mean that the
     # frequencies within that band require more bits to express. We are
     # reducing quantization noise by allocation more bits where we hear content
-    print window_state
-    bit_alloc = BitAlloc(budget, max_mant_bits, band_scale_factors.nBands, band_scale_factors.nLines, smr_data)
-    remBits = 0
+    (bit_alloc, remaining_bits) = BitAlloc(budget, max_mant_bits, band_scale_factors.nBands, band_scale_factors.nLines, smr_data)
+    print remaining_bits
+    print "Window State: ", window_state
+    print "====="
 
     # Using these bit allocations, quantize the MDCT data for each band using
     # the perceptual bit resolution. First, figure out how many bits we are
@@ -183,4 +184,4 @@ def encode_channel(samples, window_state, channels, sample_rate, mdct_lines, sca
                                                           bit_alloc[band])
             mant_count += lines
 
-    return (scale_factor, bit_alloc, mant, overall_scale, remBits)
+    return (scale_factor, bit_alloc, mant, overall_scale, remaining_bits)

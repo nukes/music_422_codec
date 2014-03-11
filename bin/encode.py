@@ -8,7 +8,8 @@ from codec.pacfile import PACWriter
 
 elapsed = time.time()
 
-buf = TransientBuffer('SQAM/cast_1.wav')
+buf = TransientBuffer('SQAM/harp40_1.wav')
+#buf = TransientBuffer('sample.wav')
 
 channels = 2
 sample_rate = 44100

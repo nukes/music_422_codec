@@ -1,36 +1,5 @@
 import numpy as np
 
-def water_fill(signal, bit_alloc, bits_remaining, max_mant, nLines):
-
-    signal = np.array(signal)
-    threshold = np.max(0.5 * np.log2(signal ** 2))
-    transform = 0.5 * np.log2(signal ** 2)
-
-    sorted_transform = np.sort(transform)
-    indices = np.argsort(transform)
-
-    while bits_remaining > np.min(nLines):
-
-        threshold -= 1
-
-        for i in range(len(sorted_transform)):
-            k = indices[i]
-            bit_fill = nLines[k]
-            if sorted_transform[k] > threshold and bit_fill <= bits_remaining \
-                                               and bit_alloc[k] < max_mant: 
-                bit_alloc[k] += 1
-                bits_remaining -= bit_fill
-
-    # Get rid of ones!
-    bits_without_ones = np.where(bit_alloc == 1, 0, bit_alloc)
-    ones_remaining = np.sum(bit_alloc) - np.sum(bits_without_ones)
-
-    # Iteratively dole out the one bits
-    for i in range(int(ones_remaining)):
-        k = np.argsort(bits_without_ones[bits_without_ones >= 2])[0]
-        bits_without_ones[k] += 1
-
-    return bits_without_ones.astype(int)
 
 DBTOBITS = 6.02
 def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
@@ -105,46 +74,23 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
         lastBudget = remBits
 
 
-
     # Check for single bits and negative values
     a = bits.copy()
-    #bits[bits<=1] = 0
-
     bits = _pair_ones(bits)
 
-    print "Budget:    ", bitBudget
-    print "OrigAlloc: ", a
-    print "Bit Alloc: ", bits
-    print "Remaining: ", (bitBudget - np.sum(bits * nLines))
-    print "===="
+    # Finally, cancel any 1s that appear
+    print bits
+    bits[bits == 1] = 0
 
-    '''
-    availableBands = (bits != maxMantBits)
-    
-    while True:
-      if np.all(np.logical_not(availableBands)): break
-      indices = (bits==1).nonzero()[0]    # indices of bands with just 1 allocated bit
+    #print "Budget:    ", bitBudget
+    #print "OrigAlloc: ", a
+    #print "Bit Alloc: ", bits
+    #print "Remaining: ", (bitBudget - np.sum(bits * nLines))
+    #print "Remaining: ", (bitBudget - np.sum(a * nLines))
+    #print "Lines:     ", nLines
+    #print "===="
 
-      if indices.size == 0: break
-
-      index = indices[0]
-
-      bits[index] -= 1
-      remBits += nLines[index]    # Add lonely bit back to bit budget
-      availableBands[index] = False
-
-      indices = (SMR == max(SMR[availableBands])).nonzero()[0]
-
-      for i in indices:
-        if remBits >= nLines[i]:
-          remBits -= nLines[i]
-          bits[i] += 1
-          if bits[i] == maxMantBits:
-            availableBands[i] = False
-          SMR[i] -= DBTOBITS
-    '''
-
-    return bits
+    return bits, bitBudget - np.sum(bits * nLines)
 
 
 def _pair_ones(alloc):
