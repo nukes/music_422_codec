@@ -75,7 +75,33 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
     bits[bits<1] = 0
 
     # Pair up any leftover 1 bit allocations
+    '''
     bits = _pair_ones(bits)
+    '''
+
+    while True:
+      if np.all(np.logical_not(availableBands)): break
+      indices = (bits==1).nonzero()[0]    # indices of bands with just 1 allocated bit
+
+      if indices.size == 0: break
+
+      index = indices[0]
+
+      bits[index] -= 1
+      remBits += nLines[index]    # Add lonely bit back to bit budget
+      availableBands[index] = False
+
+      indices = (SMR == max(SMR[availableBands])).nonzero()[0]
+
+      if indices.size == 0: break
+
+      for i in indices:
+        if remBits >= nLines[i]:
+          remBits -= nLines[i]
+          bits[i] += 1
+          if bits[i] == maxMantBits:
+            availableBands[i] = False
+          SMR[i] -= DBTOBITS
 
     # Remove a lone 1 bit that couldn't be paired, if it exists
     bits[bits==1] = 0
