@@ -1,36 +1,5 @@
 import numpy as np
 
-def water_fill(signal, bit_alloc, bits_remaining, max_mant, nLines):
-
-    signal = np.array(signal)
-    threshold = np.max(0.5 * np.log2(signal ** 2))
-    transform = 0.5 * np.log2(signal ** 2)
-
-    sorted_transform = np.sort(transform)
-    indices = np.argsort(transform)
-
-    while bits_remaining > np.min(nLines):
-
-        threshold -= 1
-
-        for i in range(len(sorted_transform)):
-            k = indices[i]
-            bit_fill = nLines[k]
-            if sorted_transform[k] > threshold and bit_fill <= bits_remaining \
-                                               and bit_alloc[k] < max_mant: 
-                bit_alloc[k] += 1
-                bits_remaining -= bit_fill
-
-    # Get rid of ones!
-    bits_without_ones = np.where(bit_alloc == 1, 0, bit_alloc)
-    ones_remaining = np.sum(bit_alloc) - np.sum(bits_without_ones)
-
-    # Iteratively dole out the one bits
-    for i in range(int(ones_remaining)):
-        k = np.argsort(bits_without_ones[bits_without_ones >= 2])[0]
-        bits_without_ones[k] += 1
-
-    return bits_without_ones.astype(int)
 
 DBTOBITS = 6.02
 def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
@@ -65,9 +34,6 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
 
     # Initialize vector containing number of bits allocated to each band
     bits = np.zeros(nBands, dtype=np.int32)
-    
-    ######## Water-filling ########
-
     remBits = bitBudget    # remaining bits in budget
     lastBudget = bitBudget    # remaining bit budget from last iteration
 
@@ -75,6 +41,7 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
     # Initialize it such that everything can be allocated to
     availableBands = np.ones(nBands, dtype=bool)
 
+    # Water-filling bit allocation
     while True:
 
         # Are there no more bands to fill anymore? If so, break the rate
@@ -104,51 +71,27 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
         if remBits == lastBudget: break
         lastBudget = remBits
 
-    # Check for single bits and negative values
-    bits[bits<=1] = 0
+    # Check for negative values and remove them
+    bits[bits<1] = 0
 
-    availableBands = (bits != maxMantBits)
+    # Pair up any leftover 1 bit allocations
+    bits = _pair_ones(bits)
 
-    '''
-    print "Water-filling bits:"
-    print bits
-    '''
-    
-    while True:
-      if np.all(np.logical_not(availableBands)): break
-      indices = (bits==1).nonzero()[0]    # indices of bands with just 1 allocated bit
+    # Remove a lone 1 bit that couldn't be paired, if it exists
+    bits[bits==1] = 0
 
-      if indices.size == 0: break
-
-      index = indices[0]
-
-      bits[index] -= 1
-      remBits += nLines[index]    # Add lonely bit back to bit budget
-      availableBands[index] = False
-
-      indices = (SMR == max(SMR[availableBands])).nonzero()[0]
-
-      if indices.size == 0: break
-
-      for i in indices:
-        if remBits >= nLines[i]:
-          remBits -= nLines[i]
-          bits[i] += 1
-          if bits[i] == maxMantBits:
-            availableBands[i] = False
-          SMR[i] -= DBTOBITS
-    
-    '''
-    print "Filtered bits:"
-    print bits
-    print "Bit budget: ", bitBudget
-    print "Remaining bits: ", remBits
-    '''
     return bits, remBits
 
-    #-----------------------------------------------------------------------------
 
-if __name__ == "__main__":
-  pass
+def _pair_ones(alloc):
 
-
+  while True:
+      ones = np.where(alloc==1)[0]
+      if len(ones) == 0:
+          return alloc
+      high = np.max(ones)
+      low = np.min(ones)
+      if high == low:
+          return alloc
+      alloc[low] += 1
+      alloc[high] -= 1
