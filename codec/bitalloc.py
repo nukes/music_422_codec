@@ -104,13 +104,22 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
         if remBits == lastBudget: break
         lastBudget = remBits
 
+
+
     # Check for single bits and negative values
-    bits[bits<=1] = 0
+    a = bits.copy()
+    #bits[bits<=1] = 0
 
+    bits = _pair_ones(bits)
+
+    print "Budget:    ", bitBudget
+    print "OrigAlloc: ", a
+    print "Bit Alloc: ", bits
+    print "Remaining: ", (bitBudget - np.sum(bits * nLines))
+    print "===="
+
+    '''
     availableBands = (bits != maxMantBits)
-
-    print "Water-filling bits:"
-    print bits
     
     while True:
       if np.all(np.logical_not(availableBands)): break
@@ -126,8 +135,6 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
 
       indices = (SMR == max(SMR[availableBands])).nonzero()[0]
 
-      if indices.size == 0: break
-
       for i in indices:
         if remBits >= nLines[i]:
           remBits -= nLines[i]
@@ -135,15 +142,23 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
           if bits[i] == maxMantBits:
             availableBands[i] = False
           SMR[i] -= DBTOBITS
-    
-    print "Filtered bits:"
-    print bits
-    print "Bit budget: ", bitBudget
-    print "Remaining bits: ", remBits
-    
-    return bits, remBits
+    '''
 
-    #-----------------------------------------------------------------------------
+    return bits
+
+
+def _pair_ones(alloc):
+
+    while True:
+        ones = np.where(alloc==1)[0]
+        if len(ones) == 0:
+            return alloc
+        high = np.max(ones)
+        low = np.min(ones)
+        if high == low:
+            return alloc
+        alloc[low] += 1
+        alloc[high] -= 1
 
 if __name__ == "__main__":
   pass
