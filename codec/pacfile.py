@@ -178,6 +178,7 @@ class PACWriter(object):
         self.scale_bits = scale_bits
         self.mant_bits = mant_bits
         self.target_bps = target_bps
+        self.bitReservoir = 0
 
     def write_data(self, data, win_state):
         ''' Write a block of signed float data in the range of -1...1 to the
@@ -212,7 +213,7 @@ class PACWriter(object):
             full_block.append(block)
             self.previous_block[ch] = data[ch]
 
-        (scale_factor, bit_alloc, mant, overall_scale) = encode(full_block,
+        (scale_factor, bit_alloc, mant, overall_scale, rem_bits) = encode(full_block,
                                                                 win_state,
                                                                 self.channels,
                                                                 self.sample_rate,
@@ -220,7 +221,13 @@ class PACWriter(object):
                                                                 self.scale_bits,
                                                                 self.mant_bits,
                                                                 self.band_scale_factors,
-                                                                self.target_bps)
+                                                                self.target_bps,
+                                                                self.bitReservoir)
+
+        # Update bit reservoir for next data block
+        if self.bitReservoir < 10**17:
+            self.bitReservoir += rem_bits[0] #
+        #print self.bitReservoir
 
         # Write the encoded data to the file
         for ch in range(self.channels):

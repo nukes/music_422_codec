@@ -1,6 +1,8 @@
 import numpy as np
 from window import HanningWindow
 
+import matplotlib.pyplot as plt #
+
 def SPL(intensity): 
     ''' Return SPL in dB for the given intensity vector '''
     intensity = np.maximum(np.finfo(float).eps, intensity)
@@ -68,7 +70,9 @@ class Masker:
         self.z = Bark(f)
         self.spl = SPL
         self.isTonal = isTonal
-        self.drop = 6.025 + 0.275*self.z if isTonal else 2.025+0.175*self.z
+        #self.drop = 6.025 + 0.275*self.z if isTonal else 2.025+0.175*self.z
+        self.drop = 15.
+        if not isTonal: self.drop = 5.5
 
     def IntensityAtFreq(self,freq): 
         ''' The intensity of this masker at frequency freq '''
@@ -146,10 +150,10 @@ def AssignMDCTLinesFromFreqLimits(nMDCTLines, sampleRate, flimit = cbFreqLimits)
     return np.array(assignment)
 
 
-def findPeaks(fftIntensity, thresh = 7.0):
+def findPeaks(fftIntensity):
     
     peaks = []
-    dataSPL = SPL(SPL(fftIntensity))
+    dataSPL = SPL(fftIntensity)
     dataDiff = np.concatenate([ [1], np.diff(dataSPL), [-1] ])
     peakIndices = (dataDiff[0:-1] > 0) & (dataDiff[1:] < 0)
 
@@ -221,7 +225,7 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
     # Identify tonal and noise maskers
     # Get tonal maskers
     maskers = []
-    spl_peaks = findPeaks(dft_intensity)
+    spl_peaks = findPeaks(SPL(dft_intensity))
 
     for i, isPeak in enumerate(spl_peaks):
         if i+1 == Nlines: break
@@ -300,6 +304,23 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
                 smr[i] = np.max(mdct_spl[lower:upper]-np.mean(masked_spl[lower:upper]))
         else:
             smr[i] = 0.
+
+    #######
+    """
+    plt.figure(2)
+    for m in maskers:
+        print "masker freq: ", m.f
+        print "peak: ", m.spl
+        #plt.semilogx(fline, SPL(m.vIntensityAtBark(Bark(fline))))
+    plt.semilogx(fline, dft_spl)
+    plt.semilogx(fline, masked_spl)
+    plt.xlim(50, sampleRate/2) 
+    plt.ylim(-20, 100) 
+    plt.xlabel("Freq. (Hz)")
+    plt.ylabel("SPL (dB)") 
+    """
+    #######
+
     return np.array(smr)
 
 #Testing code

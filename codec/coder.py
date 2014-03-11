@@ -8,7 +8,6 @@ from codec.mdct import MDCT, IMDCT
 from codec.psychoac import CalcSMRs
 from codec.bitalloc import BitAlloc
 
-
 def decode(scale_factor, bit_alloc, mant, overall_scale, mdct_lines, scale_bits, band_scale_factors, window_state):
     ''' Decode the multi-channel data stream '''
 
@@ -56,7 +55,7 @@ def decode(scale_factor, bit_alloc, mant, overall_scale, mdct_lines, scale_bits,
     return win_samples
 
 
-def encode(data, window_state, channels, sample_rate, mdct_lines, scale_bits, mant_bits, band_scale_factors, target_bps):
+def encode(data, window_state, channels, sample_rate, mdct_lines, scale_bits, mant_bits, band_scale_factors, target_bps, bitReservoir):
     ''' Encode the multi-channel data stream '''
 
     scale_factors = []
@@ -64,8 +63,10 @@ def encode(data, window_state, channels, sample_rate, mdct_lines, scale_bits, ma
     mant = []
     overall_scale = []
 
+    rem_bits = [] #
+
     for data_channel in data:
-        (a, b, c, d) = encode_channel(data_channel,
+        (a, b, c, d, e) = encode_channel(data_channel,
                                       window_state,
                                       channels, 
                                       sample_rate,
@@ -73,17 +74,19 @@ def encode(data, window_state, channels, sample_rate, mdct_lines, scale_bits, ma
                                       scale_bits,
                                       mant_bits,
                                       band_scale_factors,
-                                      target_bps);
+                                      target_bps,
+                                      bitReservoir);
         scale_factors.append(a)
         bit_alloc.append(b)
         mant.append(c)
         overall_scale.append(d)
 
-    #print bit_alloc
-    return (scale_factors, bit_alloc, mant, overall_scale)
+        rem_bits.append(e) #
+
+    return (scale_factors, bit_alloc, mant, overall_scale, rem_bits)
 
 
-def encode_channel(samples, window_state, channels, sample_rate, mdct_lines, scale_bits, mant_bits, band_scale_factors, target_bps):
+def encode_channel(samples, window_state, channels, sample_rate, mdct_lines, scale_bits, mant_bits, band_scale_factors, target_bps, bitReservoir):
     ''' Encode a single channel of data through the pipeline. Each channel,
     in this coder, is just considered in isolation -- i.e. we have n channels
     of mono audio, we consider no correlation between them.
@@ -133,7 +136,7 @@ def encode_channel(samples, window_state, channels, sample_rate, mdct_lines, sca
     # switching so that we remain critically sampled. Finally, if we are in a
     # short window, up the data rate we so don't have frequency thrashing.
     budget = target_bps * half_n
-    budget *= 2. if window_state == 2 else 1.
+    budget += bitReservoir if window_state == 2 else 0
     budget -= scale_bits * (band_scale_factors.nBands + 1)
     budget -= mant_bits * band_scale_factors.nBands
     budget -= 2
@@ -143,7 +146,7 @@ def encode_channel(samples, window_state, channels, sample_rate, mdct_lines, sca
     # perceptual indicators. Larger SMR values in a critical band mean that the
     # frequencies within that band require more bits to express. We are
     # reducing quantization noise by allocation more bits where we hear content
-    bit_alloc = BitAlloc(budget, max_mant_bits, band_scale_factors.nBands, band_scale_factors.nLines, smr_data)
+    (bit_alloc, remBits) = BitAlloc(budget, max_mant_bits, band_scale_factors.nBands, band_scale_factors.nLines, smr_data)
 
     # Using these bit allocations, quantize the MDCT data for each band using
     # the perceptual bit resolution. First, figure out how many bits we are
@@ -178,4 +181,4 @@ def encode_channel(samples, window_state, channels, sample_rate, mdct_lines, sca
                                                           bit_alloc[band])
             mant_count += lines
 
-    return (scale_factor, bit_alloc, mant, overall_scale)
+    return (scale_factor, bit_alloc, mant, overall_scale, remBits)

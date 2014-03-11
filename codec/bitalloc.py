@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def water_fill(signal, bit_alloc, bits_remaining, max_mant, nLines):
 
     signal = np.array(signal)
@@ -66,9 +65,6 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
 
     # Initialize vector containing number of bits allocated to each band
     bits = np.zeros(nBands, dtype=np.int32)
-
-    # Update SMR vector through each bit allocation iteration
-    #SMR = np.copy(SMR)
     
     ######## Water-filling ########
 
@@ -86,21 +82,10 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
         if not np.any(availableBands):
             break
 
-        # If all bands are saturated -- that is, we were bit-wealthy -- then
-        # break this loop.
-        # TODO: This condition can be pulled outside of the loop
-        if np.all(bits == maxMantBits):
-            break
-
         # Indices of bands we're not done filling (the first max value in each available band)
         #print (SMR < max(SMR[availableBands])).nonzero()[0]
         indices = (SMR == max(SMR[availableBands])).nonzero()[0]
         
-        #print "---"
-        #print SMR
-        #print nLines
-        #print SMR == max(SMR[availableBands])
-
         if indices.size == 0: break
 
         for i in indices:
@@ -114,17 +99,18 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
             SMR[i] -= DBTOBITS
           else:
             availableBands[i] = False
-        #print "Waterfilling round: ", bits
+        
         # Stop if no bits were assigned in the last iteration
         if remBits == lastBudget: break
         lastBudget = remBits
-
-    #print 'Finish: ', bits
 
     # Check for single bits and negative values
     bits[bits<=1] = 0
 
     availableBands = (bits != maxMantBits)
+
+    print "Water-filling bits:"
+    print bits
     
     while True:
       if np.all(np.logical_not(availableBands)): break
@@ -149,8 +135,13 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
           if bits[i] == maxMantBits:
             availableBands[i] = False
           SMR[i] -= DBTOBITS
-
-    return bits
+    
+    print "Filtered bits:"
+    print bits
+    print "Bit budget: ", bitBudget
+    print "Remaining bits: ", remBits
+    
+    return bits, remBits
 
     #-----------------------------------------------------------------------------
 
