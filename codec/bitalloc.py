@@ -109,8 +109,10 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
 
     availableBands = (bits != maxMantBits)
 
+    '''
     print "Water-filling bits:"
     print bits
+    '''
     
     while True:
       if np.all(np.logical_not(availableBands)): break
@@ -136,11 +138,12 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
             availableBands[i] = False
           SMR[i] -= DBTOBITS
     
+    '''
     print "Filtered bits:"
     print bits
     print "Bit budget: ", bitBudget
     print "Remaining bits: ", remBits
-    
+    '''
     return bits, remBits
 
     #-----------------------------------------------------------------------------

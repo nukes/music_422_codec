@@ -225,7 +225,7 @@ class PACWriter(object):
                                                                 self.bitReservoir)
 
         # Update bit reservoir for next data block
-        if self.bitReservoir < 10**17:
+        if self.bitReservoir < 100:
             self.bitReservoir += rem_bits[0] #
         #print self.bitReservoir
 

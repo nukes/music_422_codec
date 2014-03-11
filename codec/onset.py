@@ -11,7 +11,7 @@ def onset_in_block(signal):
 
     This function will output a Boolean value. '''
     N = signal.size
-    thresh = 0.1
+    thresh = 0.1002
     fft = np.fft.fft(signal)[:N/2]
 
     weights = np.zeros(N/2)
