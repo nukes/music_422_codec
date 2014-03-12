@@ -95,8 +95,8 @@ class TransientBuffer(object):
     def _next_window_state(self):
         if len(self._buffer) > 0:
             channels = np.array(self._buffer).T
-            left = onset_in_block(np.array(channels[0]))
-            right = onset_in_block(np.array(channels[1]))
+            left = onset_in_block(np.array(channels[0]), self.window_controller.state)
+            right = onset_in_block(np.array(channels[1]), self.window_controller.state)
             self.window_controller.step(left or right)
             if self.window_controller.state == 1:
                 self._detects += 1
