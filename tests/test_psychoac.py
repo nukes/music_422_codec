@@ -28,13 +28,14 @@ class InvestigateSMRs(unittest.TestCase):
         freq_lines = real.AssignMDCTLinesFromFreqLimits(512, 48000)
         self.sfbands = real.ScaleFactorBands(freq_lines)
 
+'''
     def test_compare_smrs(self):
         expected = test.CalcSMRs(self.signal, self.MDCTdata, self.MDCTscale, self.Fs, self.sfbands)
         computed = real.CalcSMRs(self.signal, self.MDCTdata, self.MDCTscale, self.Fs, self.sfbands)
         for a, b in zip(expected, computed):
             pass
             #print 'E: {:.5}, C: {:.5}, Diff: {:.5}'.format(a, b, abs(a-b))
-
+'''
 
 class InvestigateMasker(unittest.TestCase):
 
@@ -68,6 +69,7 @@ class TestScaleBands(unittest.TestCase):
         #print expected
         #print computed
 
+'''
     def test_scale_factor_bands(self):
         nLines = real.AssignMDCTLinesFromFreqLimits(64, 48000, flimit=real.cbFreqLimits)
         expected = test.ScaleFactorBands(nLines)
@@ -86,7 +88,7 @@ class TestScaleBands(unittest.TestCase):
         for i in range(expected.nBands):
             print i
             self.assertTrue(expected.upperLine[i] >= expected.lowerLine[i])
-
+'''
 
 class TestLevelConverters(unittest.TestCase):
 

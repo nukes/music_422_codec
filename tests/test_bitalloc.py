@@ -19,7 +19,7 @@ class TestBitAllocation(unittest.TestCase):
                     18.15409285, 16.08008443, 14.21182895, 12.12782107, 10.69488807,
                     9.79722076, 7.18667382, -5.69775959, 13.67881901, -5.89424813,
                     -10.49613988, 11.71039088, -22.9936503, -38.68104066, -80.88977674]
-
+"""
     def test_compare_bit_allocation(self):
         budget = 1300
         lines = AssignMDCTLinesFromFreqLimits(512, 44100)
@@ -68,7 +68,7 @@ class TestBitAllocation(unittest.TestCase):
         print "Short Window"
         print expected, expected_alloc
         print computed, computed_alloc
-
+"""
 
 if __name__ == '__main__':
     unittest.main()
