@@ -45,6 +45,7 @@ class TransientBuffer(object):
             self._buffer.append(self._data.popleft())
 
         # Create the window controller and prime it with the buffer data
+        self.short_runs = [0, 0]
         self._detects = 0
         self.window_controller = WindowState()
         self._next_window_state()
@@ -70,15 +71,15 @@ class TransientBuffer(object):
         data_pop = min(block_size, len(self._data))
         buffer_pop = min(block_size, len(self._buffer))
 
+        # Repopulate the buffer with data
+        for i in range(data_pop):
+            self._buffer.append(self._data.popleft())
+
         # Popleft the elements out of the buffer -- i.e. do a FIFO poll
         ret = []
         for x in range(buffer_pop):
             ret.append(self._buffer.popleft())
         ret = np.array(ret).T
-
-        # Repopulate the buffer with data
-        for i in range(data_pop):
-            self._buffer.append(self._data.popleft())
 
         # If the buffer exists but is not the length we expect, zero pad
         # This cheap-ass shortcut is a precedent in the provided file :3
@@ -95,8 +96,12 @@ class TransientBuffer(object):
     def _next_window_state(self):
         if len(self._buffer) > 0:
             channels = np.array(self._buffer).T
-            left = onset_in_block(np.array(channels[0]), self.window_controller.state)
-            right = onset_in_block(np.array(channels[1]), self.window_controller.state)
+            left, self.short_runs[0] = onset_in_block(np.array(channels[0]), self.window_controller.state, self.short_runs[0])
+            #if self.short_runs[0] == 0:
+            #    self.short_runs[1] = 0
+            right, self.short_runs[1] = onset_in_block(np.array(channels[1]), self.window_controller.state, self.short_runs[1])
+            #if self.short_runs[1] == 0:
+            #    self.short_runs[0] = 0
             self.window_controller.step(left or right)
             if self.window_controller.state == 1:
                 self._detects += 1

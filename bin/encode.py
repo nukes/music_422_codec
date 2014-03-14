@@ -3,12 +3,11 @@
 import sys
 import time
 
-from codec.transbuffer import TransientBuffer
 from codec.pacfile import PACWriter
+from codec.transbuffer import TransientBuffer
 
-elapsed = time.time()
-
-buf = TransientBuffer('samples/dead/dead.wav')
+#buf = TransientBuffer('SQAM/cast_1.wav')
+buf = TransientBuffer('samples/_more/led.wav')
 
 channels = 2
 sample_rate = 44100
@@ -17,6 +16,8 @@ mdct_lines = 512
 scale_bits = 3
 mant_bits = 4
 target_bps = 2.9
+
+elapsed = time.time()
 
 pac = PACWriter('coded.pac', sample_rate, channels, samples, mdct_lines, scale_bits, mant_bits, target_bps)
 

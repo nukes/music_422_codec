@@ -3,7 +3,7 @@
 import numpy as np
 
 
-def onset_in_block(signal, window_state):
+def onset_in_block(signal, window_state, short_runs):
     ''' Accepts some block of the signal as input. This function performs an
     an FFT on the block and computes a weighted spectral energy measure. the
     weights favor higher energies, as signal onset usually contains high
@@ -12,10 +12,15 @@ def onset_in_block(signal, window_state):
     This function will output a Boolean value. '''
     N = signal.size
 
-    if window_state == 0:
-        thresh = 0.03
+    if window_state == 2 and short_runs > 4:
+        thresh = 1.0
+        short_runs = 0
+    elif window_state == 2 and short_runs <= 4:
+        thresh = 0.05
+        short_runs += 1
     else:
-        thresh = 0.45
+        thresh = 0.05
+        short_runs = 0
 
     fft = np.fft.fft(signal)[:N/2]
 
@@ -23,7 +28,7 @@ def onset_in_block(signal, window_state):
     weights[N/4:] = 1.
     
     energy = np.sum(weights * np.abs(fft)**2) / (N/2.)
-    return energy > thresh
+    return energy > thresh, short_runs
 
 
 class WindowState(object):
