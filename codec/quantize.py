@@ -1,14 +1,14 @@
-'''
+"""
 Block floating-point quantization routines.
 All input is expected to be normalized between 1.0 and -1.0
 
 Encode a block using ScaleFactor and vMantissa, and decode with vDequantize.
-'''
+"""
 import numpy as np
 
 
 def ScaleFactor(sample, scale_bits=3, mant_bits=5):
-    ''' Return the scale factor for a signed fraction in block FP scheme '''
+    """ Return the scale factor for a signed fraction in block FP scheme """
     # Guard against bad and degenerate conditions
     if mant_bits <= 0:
         return 0
@@ -27,7 +27,7 @@ def ScaleFactor(sample, scale_bits=3, mant_bits=5):
 
 
 def vMantissa(samples, scale, scale_bits=3, mant_bits=5):
-    ''' Return a vector of mantissas in block FP for a given sample vector '''
+    """ Return a vector of mantissas in block FP for a given sample vector """
     # Guard against bad and degenerate conditions
     if mant_bits <= 0:
         return np.zeros(len(samples)).astype(int)
@@ -49,8 +49,8 @@ def vMantissa(samples, scale, scale_bits=3, mant_bits=5):
 
 
 def vDequantize(scale, mantissa, scale_bits=3, mant_bits=5):
-    ''' Return the dequantized, signed fraction values from the given
-    block scale factor and mantissa vector, using the block FP scheme '''
+    """ Return the dequantized, signed fraction values from the given
+    block scale factor and mantissa vector, using the block FP scheme """
     # Guard against bad and degenerate conditions
     if mant_bits <= 0:
         return 0.
@@ -73,7 +73,7 @@ def vDequantize(scale, mantissa, scale_bits=3, mant_bits=5):
 
 
 def vQuantizeUniform(aNumVec, nBits):
-    ''' Uniformly quantize vector aNumberVec of signed fractions with nBits '''
+    """ Uniformly quantize vector aNumberVec of signed fractions with nBits """
     vec = aNumVec.copy()
 
     sign_bit = 1 << (nBits-1)
@@ -89,7 +89,7 @@ def vQuantizeUniform(aNumVec, nBits):
 
 
 def vDequantizeUniform(aQuantizedNumVec, nBits):
-    ''' Uniformly dequantize vectors of arbitrary bits '''
+    """ Uniformly dequantize vectors of arbitrary bits """
     sign_vec = np.right_shift(aQuantizedNumVec, nBits-1)
     sign_vec = np.multiply(sign_vec, -2)
     sign_vec = np.add(sign_vec, 1)
@@ -101,7 +101,7 @@ def vDequantizeUniform(aQuantizedNumVec, nBits):
 
 
 def QuantizeUniform(aNum, nBits):
-    ''' Uniformly quantize signed fraction aNum with nBits '''
+    """ Uniformly quantize signed fraction aNum with nBits """
     if aNum == 0:
         return 0
     sign = int(aNum < 0)
@@ -113,7 +113,7 @@ def QuantizeUniform(aNum, nBits):
 
 
 def DequantizeUniform(aQuantizedNum, nBits):
-    ''' Uniformly dequantizes a codeword of nBits into a signed fraction '''
+    """ Uniformly dequantizes a codeword of nBits into a signed fraction """
     if aQuantizedNum == 0:
         return 0.
     sign = 1 - 2 * (aQuantizedNum >> (nBits - 1))
@@ -154,18 +154,18 @@ def Dequantize(scale, mantissa, nScaleBits=3, nMantBits=5):
 
 
 def _get_max_scale_size(scale_bits, mant_bits):
-    ''' Returns a tuple of the maximum scale and the maximum bits
-    used in the block FP scheme calculations '''
+    """ Returns a tuple of the maximum scale and the maximum bits
+    used in the block FP scheme calculations """
     max_scale = (1 << scale_bits) - 1
     max_bits = max_scale + mant_bits
     return (max_scale, max_bits)
 
 
 def _midtread_bins(x):
-    ''' Shortcut for the number of bins in a midtread quantizer '''
+    """ Shortcut for the number of bins in a midtread quantizer """
     return 2 ** (x - 1)
 
 
 def _code_abs_mask(bits):
-    ''' Shortcut to produce a mask to get the absolute value '''
+    """ Shortcut to produce a mask to get the absolute value """
     return 2 ** (bits - 1) - 1

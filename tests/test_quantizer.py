@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 
 import codec.quantize as real_q
-import provided.quantize as test_q
+import tests.provided.quantize as test_q
 
 
 class TestQuantizerRoutines(unittest.TestCase):

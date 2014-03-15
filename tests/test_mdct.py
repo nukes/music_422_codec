@@ -4,7 +4,7 @@ import collections
 import numpy as np
 
 import codec.mdct as real
-import provided.mdct as test
+import tests.provided.mdct as test
 
 
 class TestMDCT(unittest.TestCase):

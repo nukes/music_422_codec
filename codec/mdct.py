@@ -9,8 +9,7 @@ import numpy as np
 
 
 def MDCT(data, a, b, isInverse=False):
-    """
-    Fast MDCT algorithm for window length a+b following pp. 141-143 of
+    """ Fast MDCT algorithm for window length a+b following pp. 141-143 of
     Bosi & Goldberg, "Introduction to Digital Audio..." book
     (and where 2/N factor is included in forward transform instead of inverse)
     a: left half-window length

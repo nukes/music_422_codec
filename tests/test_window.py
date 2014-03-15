@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 
 import codec.window as real_w
-import provided.window as test_w
+import tests.provided.window as test_w
 
 
 class WindowTests(unittest.TestCase):

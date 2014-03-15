@@ -6,7 +6,7 @@ import numpy as np
 from codec.mdct import MDCT
 from codec.window import SineWindow
 import codec.psychoac as real
-import provided.psychoac as test
+import tests.provided.psychoac as test
 
 
 class InvestigateSMRs(unittest.TestCase):
@@ -28,14 +28,6 @@ class InvestigateSMRs(unittest.TestCase):
         freq_lines = real.AssignMDCTLinesFromFreqLimits(512, 48000)
         self.sfbands = real.ScaleFactorBands(freq_lines)
 
-'''
-    def test_compare_smrs(self):
-        expected = test.CalcSMRs(self.signal, self.MDCTdata, self.MDCTscale, self.Fs, self.sfbands)
-        computed = real.CalcSMRs(self.signal, self.MDCTdata, self.MDCTscale, self.Fs, self.sfbands)
-        for a, b in zip(expected, computed):
-            pass
-            #print 'E: {:.5}, C: {:.5}, Diff: {:.5}'.format(a, b, abs(a-b))
-'''
 
 class InvestigateMasker(unittest.TestCase):
 
@@ -45,16 +37,13 @@ class InvestigateMasker(unittest.TestCase):
         for i in range(25):
             e = expected.IntensityAtBark(i)
             c = computed.IntensityAtBark(i)
-            #self.assertTrue(np.allclose(e, c))
 
     def test_noise_compare_masker(self):
         expected = test.Masker(f=880, SPL=60, isTonal=True)
         computed = real.Masker(f=880, SPL=60, isTonal=True)
         for i in range(25):
             e = expected.IntensityAtBark(i)
-            c = computed.IntensityAtBark(i)
-            #self.assertTrue(np.allclose(e, c))        
-
+            c = computed.IntensityAtBark(i) 
 
 
 class TestScaleBands(unittest.TestCase):
@@ -66,29 +55,7 @@ class TestScaleBands(unittest.TestCase):
         expected = test.AssignMDCTLinesFromFreqLimits(64, 48000, flimit=test.cbFreqLimits)
         computed = real.AssignMDCTLinesFromFreqLimits(64, 48000, flimit=real.cbFreqLimits)
         self.assertTrue(np.array_equal(expected, computed))
-        #print expected
-        #print computed
 
-'''
-    def test_scale_factor_bands(self):
-        nLines = real.AssignMDCTLinesFromFreqLimits(64, 48000, flimit=real.cbFreqLimits)
-        expected = test.ScaleFactorBands(nLines)
-        computed = real.ScaleFactorBands(nLines)
-        print "=="
-        #print expected.lowerLine
-        print computed.lowerLine
-        #print expected.upperLine
-        print computed.nLines
-        self.assertEqual(expected.nBands, computed.nBands)
-        self.assertEqual(type(expected.nLines), type(computed.nLines))
-        self.assertTrue(np.array_equal(expected.nLines, computed.nLines))
-        self.assertTrue(np.array_equal(expected.lowerLine, computed.lowerLine))
-        self.assertTrue(np.array_equal(expected.upperLine, computed.upperLine))
-
-        for i in range(expected.nBands):
-            print i
-            self.assertTrue(expected.upperLine[i] >= expected.lowerLine[i])
-'''
 
 class TestLevelConverters(unittest.TestCase):
 

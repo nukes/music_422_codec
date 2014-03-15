@@ -1,3 +1,8 @@
+""" Rate distortion loop. Given a fixed compression rate, use reverse
+water-filling to allocate the available bits to different "channels" -- in this
+instance, the channels are frequency bands.
+"""
+
 import numpy as np
 
 

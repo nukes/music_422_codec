@@ -1,4 +1,4 @@
-''' Utility functions to interact with WAV files as needed. '''
+""" Utility functions to interact with WAV files as needed. """
 
 import struct
 
@@ -7,9 +7,9 @@ from codec.quantize import vQuantizeUniform
 
 
 def write_wav_data(filename, data):
-    ''' Take a filename and stereo data array (2, samples) and write
+    """ Take a filename and stereo data array (2, samples) and write
     out the WAV file for it.
-    '''
+    """
 
     # Figure out how many samples and the total number of bytes writing out
     samples = min([len(ch) for ch in data])
@@ -18,7 +18,7 @@ def write_wav_data(filename, data):
     # Convert the data we received into 2's complement binary
     # TODO: Refactor into a for...each
     pcm_data = []
-    for ch in range(2):
+    for ch in range(len(data)):
         d = data[ch]
         signs = np.signbit(d)
         d[signs] *= -1
@@ -28,7 +28,7 @@ def write_wav_data(filename, data):
 
     # WAV expects the stereo data to be a signle array of interleaved
     # data for each channel.
-    block = [pcm_data[ch][sam] for sam in xrange(samples) for ch in range(2)]
+    block = [pcm_data[ch][sam] for sam in xrange(samples) for ch in range(len(data))]
     block = np.asarray(block, dtype=np.int16)
 
     # Finally, create this disgusting header data

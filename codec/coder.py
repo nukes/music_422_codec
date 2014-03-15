@@ -1,4 +1,4 @@
-''' The coder pipeline '''
+""" The coder pipeline """
 
 import numpy as np
 
@@ -8,8 +8,9 @@ from codec.mdct import MDCT, IMDCT
 from codec.psychoac import CalcSMRs
 from codec.bitalloc import BitAlloc
 
+
 def decode(scale_factor, bit_alloc, mant, overall_scale, mdct_lines, scale_bits, band_scale_factors, window_state):
-    ''' Decode the multi-channel data stream '''
+    """ Decode the multi-channel data stream """
 
     half_long = 512
     half_short = 64
@@ -50,20 +51,19 @@ def decode(scale_factor, bit_alloc, mant, overall_scale, mdct_lines, scale_bits,
         samples = IMDCT(mdct_data, half_short, half_long)
         win_samples = compose_kbd_window(samples, half_short, half_long, 4., 4.)
     else:
-        raise VZalueError('Unknown window state:' + str(window_state))
+        raise ValueError('Unknown window state:' + str(window_state))
 
     return win_samples
 
 
 def encode(data, window_state, channels, sample_rate, mdct_lines, scale_bits, mant_bits, band_scale_factors, target_bps, bitReservoir):
-    ''' Encode the multi-channel data stream '''
+    """ Encode the multi-channel data stream """
 
     scale_factors = []
     bit_alloc = []
     mant = []
     overall_scale = []
-
-    rem_bits = [] #
+    rem_bits = []
 
     for data_channel in data:
         (a, b, c, d, e) = encode_channel(data_channel,
@@ -80,17 +80,16 @@ def encode(data, window_state, channels, sample_rate, mdct_lines, scale_bits, ma
         bit_alloc.append(b)
         mant.append(c)
         overall_scale.append(d)
-
-        rem_bits.append(e) #
+        rem_bits.append(e)
 
     return (scale_factors, bit_alloc, mant, overall_scale, rem_bits)
 
 
 def encode_channel(samples, window_state, channels, sample_rate, mdct_lines, scale_bits, mant_bits, band_scale_factors, target_bps, bitReservoir):
-    ''' Encode a single channel of data through the pipeline. Each channel,
+    """ Encode a single channel of data through the pipeline. Each channel,
     in this coder, is just considered in isolation -- i.e. we have n channels
     of mono audio, we consider no correlation between them.
-    '''
+    """
 
     # Constants that are use throughout the encoder chain. These are defined by
     # the block switching window sizes. The also represent the MDCT lines
